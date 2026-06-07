@@ -1,0 +1,7 @@
+/build/
+/iso/boot/ravenos.kernel
+/iso/boot/grub/grub.cfg
+*.o
+*.iso
+*.kernel
+.DS_Store

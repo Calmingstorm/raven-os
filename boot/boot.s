@@ -28,3 +28,5 @@ _start:
     hlt
     jmp .hang
 .size _start, . - _start
+
+.section .note.GNU-stack,"",@progbits
