@@ -135,3 +135,14 @@ RavenOS now has ATA-backed RavenFS persistence validated across QEMU reboot, ser
 
 
 Current version: 0.13.0
+
+### USB boot image
+
+Build an image suitable for writing directly to a USB stick:
+
+```sh
+./tools/build-usb-iso.sh
+./tools/usb-iso-qemu-test.sh
+```
+
+The artifact is `build/ravenos-usb.iso`; checksum is written to `build/ravenos-usb.iso.sha256`. See `docs/usb-boot.md` before writing it to real hardware.
