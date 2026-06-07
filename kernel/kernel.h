@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define RAVEN_VERSION "0.9.0"
+#define RAVEN_VERSION "0.10.0"
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
 #define WYRD_CAP 256
@@ -189,6 +189,11 @@ void *kmalloc(size_t size);
 void kfree_all(void);
 void heap_render(void);
 
+void process_init(void);
+uint32_t process_spawn(const char *name, uint32_t entry);
+int process_kill(uint32_t pid);
+void process_render(void);
+
 void task_init(void);
 void task_render(void);
 void task_tick(void);
@@ -228,6 +233,9 @@ int user_run_named(const char *name);
 
 void ata_init(void);
 uint32_t ata_present_flag(void);
+uint32_t ata_rw_ready_flag(void);
+int ata_read_sector(uint32_t lba, uint8_t *dst);
+int ata_write_sector(uint32_t lba, const uint8_t *src);
 void ata_render(void);
 
 void storage_init(void);

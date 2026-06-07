@@ -2,6 +2,12 @@ help
 rings
 abi
 ata
+ata-read
+ata-write
+ata-read
+procps
+ps-spawn
+procps
 exec
 load /bin/hello.rvn
 run hello

@@ -113,3 +113,15 @@ This pushes RavenOS from static subsystem scaffolds toward a small usable operat
 - `exec`, `load <path>`, `run <name>`, and `rings` operator commands
 
 This attacks several real daily-driver blockers directly: privilege architecture is now described by actual descriptors, syscalls can enter through an interrupt gate, storage has begun probing hardware instead of only pretending inside RAM, the scheduler tracks timer-driven task rotation, and executable loading has a first format/registry. The missing parts remain substantial: no proven ring-3 iret execution, no full context switch, no ATA sector read/write path, no network card driver, and no persistent installed boot yet.
+
+
+## Added in 0.10.0 work
+
+- ATA PIO sector read/write implementation for primary-master LBA28 disks
+- `ata-read` and `ata-write` commands exercising LBA 20 in QEMU dev images
+- Raw 64 MiB RavenOS dev disk image builder with a seeded ATA test sector
+- QEMU disk run/smoke scripts and validation wired into `tools/check.sh`
+- Process table with PID, entry point, page-directory metadata, and user-stack metadata
+- `procps` and `ps-spawn` commands for process/address-space inspection
+
+This closes more of the daily-driver gap than the previous pass: storage is no longer identify-only, and the kernel now has explicit process/address-space metadata instead of only task rows. Still missing: a safe proven iret into ring-3, real CR3 process switching, a persistent bootloader-installed disk image, and a NIC driver.

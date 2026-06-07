@@ -28,6 +28,12 @@ RavenOS is intentionally not branded as daily-driver ready yet. The current tree
    - Current installer writes a base system into volatile RavenFS.
    - Required: disk install, bootloader integration, upgrade/rollback story.
 
+## What 0.10.0 moved forward
+
+- ATA PIO read/write exists for LBA28 primary-master disks.
+- QEMU raw disk image tooling and disk smoke validation exist.
+- Process/address-space metadata exists.
+
 ## What 0.9.0 moved forward
 
 - GDT/TSS descriptor setup exists.

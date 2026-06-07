@@ -21,11 +21,11 @@ static void write_help(void) {
     vga_write("  help, clear, about, stats, timeline, log, caps, objects, manifest\n");
     vga_write("  boot, mem, alloc, paging, heap, clock, consoles, switchtty\n");
     vga_write("  fs, cat [path], edit <path> <text>, write, rm <path>\n");
-    vga_write("  disk, ata, save <path>, load <path>, format, install, install-run\n");
+    vga_write("  disk, ata, ata-read, ata-write, save <path>, load <path>, format, install, install-run\n");
     vga_write("  net, ping, sock, send <socket-id> <text>\n");
     vga_write("  env, sethost, pkgs, pkg-install <name>, health, metrics, proc\n");
     vga_write("  services, restart, security, power, reboot, shutdown\n");
-    vga_write("  user, exec, load <path>, run [name], abi, rings, sys, tasks, spawn, kill <id>, snapshot, panic-test\n");
+    vga_write("  user, exec, load <path>, run [name], abi, rings, procps, ps-spawn, sys, tasks, spawn, kill <id>, snapshot, panic-test\n");
 }
 
 void shell_render_home(void) {
@@ -116,6 +116,8 @@ void shell_execute(const char *cmd) {
     else if ((arg = arg_after(cmd, "rm "))) { vga_write(ramfs_delete(arg) ? "deleted\n" : "not found\n"); }
     else if (!strcmp(cmd, "disk")) storage_render();
     else if (!strcmp(cmd, "ata")) ata_render();
+    else if (!strcmp(cmd, "ata-read")) { uint8_t b[SECTOR_SIZE]; if (ata_read_sector(20, b)) { vga_write("ata lba20: "); for (uint32_t i=0;i<48 && b[i];i++) vga_putc((char)b[i]); vga_putc('\n'); } else vga_write("ata read failed\n"); }
+    else if (!strcmp(cmd, "ata-write")) { uint8_t b[SECTOR_SIZE]; memset(b, 0, sizeof(b)); strcopy((char *)b, "RavenOS ATA PIO write proof", sizeof(b)); vga_write(ata_write_sector(20, b) ? "ata lba20 written\n" : "ata write failed\n"); }
     else if ((arg = arg_after(cmd, "save "))) cmd_save(arg);
     else if ((arg = arg_after(cmd, "load "))) cmd_load(arg);
     else if (!strcmp(cmd, "format")) { storage_format(); vga_write("ravenfs formatted\n"); }
@@ -153,6 +155,8 @@ void shell_execute(const char *cmd) {
     else if ((arg = arg_after(cmd, "run "))) { if (!exec_run(arg)) vga_write("program not found or not executable\n"); }
     else if (!strcmp(cmd, "rings")) gdt_render();
     else if (!strcmp(cmd, "abi")) syscall_render();
+    else if (!strcmp(cmd, "procps")) process_render();
+    else if (!strcmp(cmd, "ps-spawn")) { uint32_t pid = process_spawn("shell.child", 0x00404000); vga_write("spawned pid="); vga_write_dec(pid); vga_putc('\n'); }
     else if (!strcmp(cmd, "install")) { installer_render(); installer_plan(); }
     else if (!strcmp(cmd, "install-run")) { installer_run(); storage_render(); }
     else if (!strcmp(cmd, "sys")) { uint32_t t = syscall_dispatch(2,0,0,0); syscall_dispatch(1,0,0,0); vga_write("SYS_TICKS returned "); vga_write_dec(t); vga_putc('\n'); }

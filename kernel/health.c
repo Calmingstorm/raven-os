@@ -12,7 +12,7 @@ void health_render(void) {
     vga_write("  pmm free frames: "); vga_write_dec(free_frames); vga_write(free_frames ? " ok\n" : " fail\n");
     vga_write("  ramfs motd: "); vga_write(motd ? "ok" : "missing"); vga_putc('\n');
     vga_write("  ravenfs load: "); vga_write(persist ? "ok" : "missing"); vga_putc('\n');
-    vga_write("  ata probe: "); vga_write(ata_present_flag() ? "present" : "not detected"); vga_putc('\n');
+    vga_write("  ata probe: "); vga_write(ata_present_flag() ? "present" : "not detected"); vga_write(" rw="); vga_write(ata_rw_ready_flag() ? "ready" : "no"); vga_putc('\n');
     vga_write("  network loopback: "); net_ping_self();
     vga_write("  capability panic.trigger/shell: "); vga_write(cap_check("panic.trigger", "shell") ? "unexpected grant" : "denied ok"); vga_putc('\n');
     wyrd_append("health", "check", "system", "ok", "operator health report rendered");

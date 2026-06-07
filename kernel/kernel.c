@@ -38,6 +38,7 @@ void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info_addr) {
     snapshot_init();
     installer_init();
     syscall_init();
+    process_init();
     task_init();
     user_init();
     exec_init();

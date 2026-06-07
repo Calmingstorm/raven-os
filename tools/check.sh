@@ -4,6 +4,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 ./tools/build.sh
 ./tools/smoke-qemu.sh
+./tools/smoke-qemu-disk.sh
 if git ls-files >/dev/null 2>&1; then
   git diff --check
 fi
