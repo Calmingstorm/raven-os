@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define RAVEN_VERSION "0.3.0"
+#define RAVEN_VERSION "0.4.0"
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
 #define WYRD_CAP 256
@@ -191,5 +191,22 @@ int ramfs_write(const char *path, const char *content);
 void syscall_init(void);
 void syscall_render(void);
 uint32_t syscall_dispatch(uint32_t num, uint32_t a, uint32_t b, uint32_t c);
+
+void user_init(void);
+void user_render(void);
+void user_run_demo(void);
+
+void storage_init(void);
+void storage_render(void);
+int storage_write_sector(uint32_t lba, const uint8_t *src);
+int storage_read_sector(uint32_t lba, uint8_t *dst);
+
+void net_init(void);
+void net_render(void);
+void net_ping_self(void);
+
+void installer_init(void);
+void installer_render(void);
+void installer_plan(void);
 
 #endif

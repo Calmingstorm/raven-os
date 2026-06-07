@@ -47,3 +47,14 @@ Current validation covers:
 - Shell commands: paging, fs, cat, write, abi, sys
 
 These close more of the viability gap, but the honest blockers remain: ring-3 userspace, durable disk filesystem, and hardware drivers beyond the QEMU-friendly basics.
+
+## Added in 0.4.0 work
+
+- Supervised userspace program table with demo ABI-backed programs
+- Volatile 128-sector block storage device
+- Storage read/write sector API
+- Loopback network scaffold with packet counters
+- Installer dry-run planner
+- Shell commands: disk, net, ping, user, run, install
+
+This is still not a daily-driver OS. The repo now contains working scaffolds for every major viability area: boot, interrupts, keyboard, shell, event log, memory, paging, heap, scheduler, filesystem, storage, userspace ABI, network, and installer. The remaining work is turning scaffolds into hardened subsystems: ring-3, durable disk FS, real NIC/disk drivers, and installable images.

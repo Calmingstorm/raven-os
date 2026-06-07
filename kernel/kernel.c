@@ -21,8 +21,12 @@ void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info_addr) {
     paging_init();
     heap_init();
     ramfs_init();
+    storage_init();
+    net_init();
+    installer_init();
     syscall_init();
     task_init();
+    user_init();
 
     idt_init();
     wyrd_append("cpu", "init", "idt+pic", "ok", "interrupt gates installed");

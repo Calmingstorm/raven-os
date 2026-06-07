@@ -16,7 +16,7 @@ void shell_render_home(void) {
     vga_set_color(COLOR_LIGHT_GREY, COLOR_BLACK);
     vga_write("One machine. One timeline. Fewer excuses.\n\n");
     wyrd_render(8);
-    vga_write("\nCommands: help, timeline, caps, objects, boot, mem, paging, heap, fs, cat, write, abi, sys, alloc, tasks, spawn, stats, clear, about, panic-test\n\n");
+    vga_write("\nCommands: help, timeline, caps, objects, boot, mem, paging, heap, fs, cat, write, disk, net, ping, user, run, abi, sys, install, alloc, tasks, spawn, stats, clear, about, panic-test\n\n");
     prompt();
 }
 
@@ -50,7 +50,13 @@ void shell_execute(const char *cmd) {
         vga_write("  fs          list RAM filesystem\n");
         vga_write("  cat         read /etc/motd\n");
         vga_write("  write       write /notes/live\n");
+        vga_write("  disk        show volatile block storage\n");
+        vga_write("  net         show network scaffold\n");
+        vga_write("  ping        loopback network self-test\n");
+        vga_write("  user        show userspace program table\n");
+        vga_write("  run         run demo user programs through ABI\n");
         vga_write("  abi         show syscall ABI\n");
+        vga_write("  install     show installer dry-run plan\n");
         vga_write("  sys         exercise syscall dispatcher\n");
         vga_write("  tasks       show task table\n");
         vga_write("  spawn       register a demo task\n");
@@ -85,8 +91,22 @@ void shell_execute(const char *cmd) {
     } else if (!strcmp(cmd, "write")) {
         ramfs_write("/notes/live", "created from command palette");
         vga_write("wrote /notes/live\n");
+    } else if (!strcmp(cmd, "disk")) {
+        storage_render();
+    } else if (!strcmp(cmd, "net")) {
+        net_render();
+    } else if (!strcmp(cmd, "ping")) {
+        net_ping_self();
+        vga_write("loopback ping ok\n");
+    } else if (!strcmp(cmd, "user")) {
+        user_render();
+    } else if (!strcmp(cmd, "run")) {
+        user_run_demo();
     } else if (!strcmp(cmd, "abi")) {
         syscall_render();
+    } else if (!strcmp(cmd, "install")) {
+        installer_render();
+        installer_plan();
     } else if (!strcmp(cmd, "sys")) {
         uint32_t t = syscall_dispatch(2,0,0,0);
         syscall_dispatch(1,0,0,0);
