@@ -136,3 +136,16 @@ This closes more of the daily-driver gap than the previous pass: storage is no l
 - Automated QEMU serial command test that drives real shell commands and verifies output
 
 This is an important daily-driver-adjacent step because the OS can now be operated and validated headlessly, not just watched through a VGA smoke test. It gives RavenOS a real automation surface for future installer, filesystem, process, and networking tests.
+
+## Added in 0.12.0 work
+
+- RavenFS now mounts on the ATA PIO disk path when a primary-master disk is present.
+- Files saved through `save <path>` are written to fixed RavenFS sectors starting at LBA 32 and survive a fresh QEMU boot using the same raw disk image.
+- `disk` now reports whether RavenFS is volatile or ATA-backed and shows the ATA base LBA.
+- `ls [prefix]`, `deldisk <path>`, and expanded RAM/disk file capacities make the operator filesystem more usable.
+- RVNEXE manifests can now register tiny script programs from `/bin/*.rvn` with actions for print, file write, and loopback send.
+- Added automated QEMU persistence validation proving a saved file can be loaded after a reboot.
+- Added automated script-exec validation proving a saved `/bin/*.rvn` manifest can run and affect RAMFS/network state.
+- Process accounting now advances from the timer IRQ path alongside task accounting.
+
+This is a real durability step: RavenOS no longer merely pretends to persist files in RAM. The filesystem is still tiny and fixed-layout, but it is backed by the dev disk and validated across reboot. The big remaining blockers are unchanged in kind but narrower in scope: actual ring-3 `iret`, CR3-backed process address spaces, a bootable installed disk image without ISO assist, and a real NIC/network stack.

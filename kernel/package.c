@@ -24,11 +24,35 @@ int package_install(const char *name) {
     for (uint32_t i = 0; i < sizeof(packages)/sizeof(packages[0]); i++) {
         if (!strcmp(packages[i].name, name)) {
             packages[i].installed = 1;
+            storage_save_file(packages[i].name[0] ? "/pkg/last" : "/pkg/unknown", packages[i].name);
             wyrd_append("pkg", "install", name, "ok", packages[i].version);
             return 1;
         }
     }
     wyrd_append("pkg", "install", name ? name : "", "fail", "package not found");
+    return 0;
+}
+
+int package_remove(const char *name) {
+    for (uint32_t i = 0; i < sizeof(packages)/sizeof(packages[0]); i++) {
+        if (!strcmp(packages[i].name, name)) {
+            if (!strcmp(name, "base")) {
+                wyrd_append("pkg", "remove", name, "deny", "base package is protected");
+                return 0;
+            }
+            packages[i].installed = 0;
+            wyrd_append("pkg", "remove", name, "ok", "package marked absent");
+            return 1;
+        }
+    }
+    wyrd_append("pkg", "remove", name ? name : "", "fail", "package not found");
+    return 0;
+}
+
+int package_is_installed(const char *name) {
+    for (uint32_t i = 0; i < sizeof(packages)/sizeof(packages[0]); i++) {
+        if (!strcmp(packages[i].name, name)) return packages[i].installed ? 1 : 0;
+    }
     return 0;
 }
 

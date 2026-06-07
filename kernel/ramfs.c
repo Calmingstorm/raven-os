@@ -6,7 +6,7 @@ typedef struct {
     uint32_t used;
 } RamFile;
 
-#define RAMFS_CAP 24
+#define RAMFS_CAP 40
 static RamFile files[RAMFS_CAP];
 static uint32_t file_count;
 
@@ -67,6 +67,16 @@ int ramfs_delete(const char *path) {
 
 int ramfs_exists(const char *path) {
     return find_file(path) >= 0;
+}
+
+void ramfs_ls(const char *prefix) {
+    const char *pfx = prefix && prefix[0] ? prefix : "/";
+    vga_write("ramfs list "); vga_write(pfx); vga_putc('\n');
+    for (uint32_t i = 0; i < file_count; i++) {
+        if (files[i].used && strprefix(files[i].path, pfx)) {
+            vga_write("  "); vga_write(files[i].path); vga_write("  "); vga_write_dec(strlen(files[i].content)); vga_write(" bytes\n");
+        }
+    }
 }
 
 uint32_t ramfs_count(void) {

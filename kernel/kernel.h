@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define RAVEN_VERSION "0.11.0"
+#define RAVEN_VERSION "0.12.0"
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
 #define WYRD_CAP 256
@@ -199,6 +199,7 @@ void heap_render(void);
 void process_init(void);
 uint32_t process_spawn(const char *name, uint32_t entry);
 int process_kill(uint32_t pid);
+void process_tick(void);
 void process_render(void);
 
 void task_init(void);
@@ -218,6 +219,7 @@ void ramfs_render(void);
 const char *ramfs_read(const char *path);
 int ramfs_write(const char *path, const char *content);
 int ramfs_delete(const char *path);
+void ramfs_ls(const char *prefix);
 int ramfs_exists(const char *path);
 uint32_t ramfs_count(void);
 const char *ramfs_path_at(uint32_t index);
@@ -237,6 +239,7 @@ void user_init(void);
 void user_render(void);
 void user_run_demo(void);
 int user_run_named(const char *name);
+int user_register_script(const char *name, const char *body);
 
 void ata_init(void);
 uint32_t ata_present_flag(void);
@@ -255,6 +258,9 @@ int storage_format(void);
 int storage_save_file(const char *path, const char *content);
 const char *storage_load_file(const char *path);
 void storage_ls(void);
+int storage_delete_file(const char *path);
+int storage_has_file(const char *path);
+void storage_ls_prefix(const char *prefix);
 
 void net_init(void);
 void net_render(void);
@@ -280,6 +286,8 @@ void log_render(uint32_t limit);
 void package_init(void);
 void package_render(void);
 int package_install(const char *name);
+int package_remove(const char *name);
+int package_is_installed(const char *name);
 void package_render_installed(void);
 
 void power_init(void);

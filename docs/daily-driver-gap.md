@@ -70,3 +70,12 @@ A minimal viable daily-driver RavenOS means:
 - Produces a durable wyrd log explaining system state and failures.
 
 Anything less is a strong hobby kernel, not a daily driver. Odin refuses to lie about that. The corpse of every abandoned hobby OS is made of optimism and missing disk drivers.
+
+## What 0.12.0 moved forward
+
+- RavenFS mounts on ATA when available instead of always using a volatile in-memory block image.
+- QEMU validation proves a file saved to RavenFS survives a fresh emulator boot with the same disk image.
+- Tiny RVNEXE script manifests can be loaded and run from `/bin/*.rvn`.
+- File tooling now includes prefix listing and disk deletion.
+
+This reduces the durable-storage and userspace-application gaps, but does not close them. The filesystem is fixed-slot and tiny, RVNEXE is still a manifest/script scaffold rather than native ring-3 binaries, and the OS still boots via ISO while using the raw disk as a data device.

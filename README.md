@@ -127,3 +127,8 @@ RavenOS should become something a person can boot and use for a focused set of t
 ## Honesty clause
 
 RavenOS is not daily-driver ready yet. See `docs/daily-driver-gap.md` for the exact blockers: ring-3 isolation, durable storage drivers, preemptive scheduling, real networking, install persistence, and real userspace binaries. Version 0.11.0 adds serial console I/O and automated interactive shell validation, but still lacks proven ring-3 execution and an installed boot target, but Odin is not putting lipstick on a missing disk driver.
+
+
+## Current milestone: 0.12.0
+
+RavenOS now has ATA-backed RavenFS persistence validated across QEMU reboot, serial-driven integration tests, and tiny RVNEXE script manifests that can be saved, loaded, and run. It remains a research OS, not a daily driver: ring-3 isolation, CR3 process switching, real networking, and installed-disk boot are still hard blockers.

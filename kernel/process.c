@@ -8,6 +8,8 @@ typedef struct {
     uint32_t entry;
     uint32_t user_stack;
     const char *state;
+    uint32_t ticks;
+    uint32_t syscalls;
 } Process;
 
 #define PROC_CAP 8
@@ -35,6 +37,8 @@ uint32_t process_spawn(const char *name, uint32_t entry) {
             procs[i].entry = entry;
             procs[i].user_stack = 0xBFFFF000 - procs[i].pid * PAGE_SIZE;
             procs[i].state = "ready";
+            procs[i].ticks = 0;
+            procs[i].syscalls = 0;
             proc_count++;
             if (!current_pid) current_pid = procs[i].pid;
             wyrd_append("proc", "spawn", procs[i].name, "ok", "process metadata created");
@@ -57,6 +61,31 @@ int process_kill(uint32_t pid) {
     return 0;
 }
 
+void process_tick(void) {
+    if (!proc_count) return;
+    uint32_t found_current = 0;
+    for (uint32_t i = 0; i < PROC_CAP; i++) {
+        if (procs[i].used && procs[i].pid == current_pid) {
+            procs[i].ticks++;
+            found_current = 1;
+            break;
+        }
+    }
+    if (!found_current) {
+        for (uint32_t i = 0; i < PROC_CAP; i++) {
+            if (procs[i].used) { current_pid = procs[i].pid; break; }
+        }
+    }
+    uint32_t start = current_pid;
+    for (uint32_t step = 0; step < PROC_CAP; step++) {
+        uint32_t wanted = ((start + step) % (next_pid ? next_pid : 1));
+        if (!wanted) wanted = 1;
+        for (uint32_t i = 0; i < PROC_CAP; i++) {
+            if (procs[i].used && procs[i].pid == wanted) { current_pid = wanted; return; }
+        }
+    }
+}
+
 void process_render(void) {
     vga_set_color(COLOR_LIGHT_CYAN, COLOR_BLACK);
     vga_write("processes\n");
@@ -68,8 +97,10 @@ void process_render(void) {
             vga_write(" state="); vga_write(procs[i].state);
             vga_write(" entry="); vga_write_hex(procs[i].entry);
             vga_write(" pd="); vga_write_hex(procs[i].page_dir);
-            vga_write(" ustack="); vga_write_hex(procs[i].user_stack); vga_putc('\n');
+            vga_write(" ustack="); vga_write_hex(procs[i].user_stack);
+            vga_write(" ticks="); vga_write_dec(procs[i].ticks); vga_putc('\n');
         }
     }
+    vga_write("  scheduler: timer advances current_pid accounting; CR3/context switch pending\n");
     vga_write("  next: bind these metadata address spaces to CR3 and iret into ring-3\n");
 }

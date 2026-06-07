@@ -51,14 +51,29 @@ int exec_load(const char *path) {
         wyrd_append("exec", "load", path, "fail", "missing or invalid RVNEXE header");
         return 0;
     }
-    add_image("custom", path, 0x00410000 + image_count * 0x1000, strlen(content), 1);
+    const char *slash = path;
+    const char *scan = path;
+    while (*scan) { if (*scan == '/') slash = scan + 1; scan++; }
+    char name[24];
+    strcopy(name, slash, sizeof(name));
+    for (uint32_t i = 0; name[i]; i++) { if (name[i] == '.') { name[i] = '\0'; break; } }
+    add_image(name, path, 0x00410000 + image_count * 0x1000, strlen(content), 1);
+    user_register_script(name, content);
     wyrd_append("exec", "load", path, "ok", "custom manifest accepted");
     return 1;
 }
 
 int exec_run(const char *name) {
+    if (!name || !name[0]) return 0;
+    if (user_run_named(name)) return 1;
     if (!exec_load(name)) return 0;
-    return user_run_named(name);
+    const char *slash = name;
+    const char *scan = name;
+    while (*scan) { if (*scan == '/') slash = scan + 1; scan++; }
+    char short_name[24];
+    strcopy(short_name, slash, sizeof(short_name));
+    for (uint32_t i = 0; short_name[i]; i++) { if (short_name[i] == '.') { short_name[i] = '\0'; break; } }
+    return user_run_named(short_name);
 }
 
 void exec_render(void) {
