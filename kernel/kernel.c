@@ -18,7 +18,10 @@ void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info_addr) {
     objects_init();
     wyrd_append("kernel", "init", "object-namespace", "ok", "inspectable kernel objects loaded");
     pmm_init();
+    paging_init();
     heap_init();
+    ramfs_init();
+    syscall_init();
     task_init();
 
     idt_init();

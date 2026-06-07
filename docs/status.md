@@ -38,3 +38,12 @@ Current validation covers:
 - ISO generation
 - QEMU boot smoke test
 - git diff whitespace checks
+
+## Added in 0.3.0 work
+
+- First-stage paging with identity map for the first 4 MiB
+- RAM filesystem with read/write command proof
+- Kernel-callable syscall ABI dispatcher scaffold
+- Shell commands: paging, fs, cat, write, abi, sys
+
+These close more of the viability gap, but the honest blockers remain: ring-3 userspace, durable disk filesystem, and hardware drivers beyond the QEMU-friendly basics.

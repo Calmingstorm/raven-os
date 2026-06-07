@@ -16,7 +16,7 @@ void shell_render_home(void) {
     vga_set_color(COLOR_LIGHT_GREY, COLOR_BLACK);
     vga_write("One machine. One timeline. Fewer excuses.\n\n");
     wyrd_render(8);
-    vga_write("\nCommands: help, timeline, caps, objects, boot, mem, heap, alloc, tasks, spawn, stats, clear, about, panic-test\n\n");
+    vga_write("\nCommands: help, timeline, caps, objects, boot, mem, paging, heap, fs, cat, write, abi, sys, alloc, tasks, spawn, stats, clear, about, panic-test\n\n");
     prompt();
 }
 
@@ -45,7 +45,13 @@ void shell_execute(const char *cmd) {
         vga_write("  boot        show multiboot memory information\n");
         vga_write("  mem         show physical memory manager state\n");
         vga_write("  alloc       allocate one physical frame for test/proof\n");
+        vga_write("  paging      show paging state\n");
         vga_write("  heap        show kernel heap state\n");
+        vga_write("  fs          list RAM filesystem\n");
+        vga_write("  cat         read /etc/motd\n");
+        vga_write("  write       write /notes/live\n");
+        vga_write("  abi         show syscall ABI\n");
+        vga_write("  sys         exercise syscall dispatcher\n");
         vga_write("  tasks       show task table\n");
         vga_write("  spawn       register a demo task\n");
         vga_write("  stats       show timer and kernel counters\n");
@@ -65,10 +71,26 @@ void shell_execute(const char *cmd) {
     } else if (!strcmp(cmd, "alloc")) {
         uint32_t frame = pmm_alloc_frame();
         vga_write("allocated frame: "); vga_write_hex(frame); vga_putc('\n');
+    } else if (!strcmp(cmd, "paging")) {
+        paging_render();
     } else if (!strcmp(cmd, "heap")) {
         void *p = kmalloc(32);
         vga_write("kmalloc(32): "); vga_write_hex((uint32_t)p); vga_putc('\n');
         heap_render();
+    } else if (!strcmp(cmd, "fs")) {
+        ramfs_render();
+    } else if (!strcmp(cmd, "cat")) {
+        const char *body = ramfs_read("/etc/motd");
+        vga_write(body ? body : "missing"); vga_putc('\n');
+    } else if (!strcmp(cmd, "write")) {
+        ramfs_write("/notes/live", "created from command palette");
+        vga_write("wrote /notes/live\n");
+    } else if (!strcmp(cmd, "abi")) {
+        syscall_render();
+    } else if (!strcmp(cmd, "sys")) {
+        uint32_t t = syscall_dispatch(2,0,0,0);
+        syscall_dispatch(1,0,0,0);
+        vga_write("SYS_TICKS returned "); vga_write_dec(t); vga_putc('\n');
     } else if (!strcmp(cmd, "tasks")) {
         task_render();
     } else if (!strcmp(cmd, "spawn")) {

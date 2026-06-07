@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define RAVEN_VERSION "0.2.0"
+#define RAVEN_VERSION "0.3.0"
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
 #define WYRD_CAP 256
@@ -179,5 +179,17 @@ void task_init(void);
 void task_render(void);
 void task_tick(void);
 uint32_t task_spawn(const char *name, const char *state);
+
+void paging_init(void);
+void paging_render(void);
+
+void ramfs_init(void);
+void ramfs_render(void);
+const char *ramfs_read(const char *path);
+int ramfs_write(const char *path, const char *content);
+
+void syscall_init(void);
+void syscall_render(void);
+uint32_t syscall_dispatch(uint32_t num, uint32_t a, uint32_t b, uint32_t c);
 
 #endif

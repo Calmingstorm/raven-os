@@ -8,7 +8,7 @@ This is not a Linux clone and not a POSIX cosplay project. The long-term goal is
 
 ## Current state
 
-Version: `0.2.0`
+Version: `0.3.0`
 
 Implemented:
 
