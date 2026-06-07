@@ -87,3 +87,12 @@ This reduces the durable-storage and userspace-application gaps, but does not cl
 - Automated serial validation now proves the integrity check reports a clean filesystem after persistent writes, and a separate corruption test proves checksum damage is detected.
 
 This narrows the durability gap but does not close it. Mission-critical use still requires crash-consistent writes, journaling or copy-on-write metadata, broader storage drivers, installable boot, and real process isolation.
+
+## What 0.15.0 moved forward
+
+- RavenFS writes now use a single-sector intent journal for save, append, and delete operations.
+- Mount recovery replays a pending journal transaction before exposing the file table, then clears the journal after replay.
+- `fsck` reports journal state in addition to file-table checksum status.
+- Automated QEMU validation now stages an interrupted journal transaction, reboots, and proves recovery makes the file visible with `status=clean journal=clean`.
+
+This narrows the crash-consistency gap. It still is not mission-critical: the journal is intentionally tiny, only protects the current fixed-slot RavenFS metadata model, and does not replace real block allocation, broader drivers, isolation, networking, or an installed boot path.

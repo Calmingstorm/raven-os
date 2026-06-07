@@ -97,6 +97,19 @@ static void cmd_append(const char *rest, int disk_backed) {
     }
 }
 
+static void cmd_stage_journal(const char *rest) {
+    if (!rest || !rest[0]) { vga_write("usage: debug-stage-journal <path> <text>\n"); return; }
+    char path[64];
+    uint32_t i = 0;
+    while (rest[i] && rest[i] != ' ' && i + 1 < sizeof(path)) { path[i] = rest[i]; i++; }
+    path[i] = '\0';
+    const char *content = rest + i;
+    while (*content == ' ') content++;
+    if (!path[0] || !content[0]) { vga_write("usage: debug-stage-journal <path> <text>\n"); return; }
+    if (storage_debug_stage_journal_save(path, content)) vga_write("staged ravenfs journal transaction\n");
+    else vga_write("failed to stage ravenfs journal transaction\n");
+}
+
 static void cmd_save(const char *path) {
     if (!path || !path[0]) { vga_write("usage: save <path>\n"); return; }
     const char *content = ramfs_read(path);
@@ -144,6 +157,7 @@ void shell_execute(const char *cmd) {
     else if ((arg = arg_after(cmd, "rm "))) { vga_write(ramfs_delete(arg) ? "deleted\n" : "not found in ramfs\n"); }
     else if (!strcmp(cmd, "disk")) storage_render();
     else if (!strcmp(cmd, "fsck")) storage_fsck();
+    else if ((arg = arg_after(cmd, "debug-stage-journal "))) cmd_stage_journal(arg);
     else if (!strcmp(cmd, "ata")) ata_render();
     else if (!strcmp(cmd, "ata-read")) { uint8_t b[SECTOR_SIZE]; if (ata_read_sector(20, b)) { vga_write("ata lba20: "); for (uint32_t i=0;i<48 && b[i];i++) vga_putc((char)b[i]); vga_putc('\n'); } else vga_write("ata read failed\n"); }
     else if (!strcmp(cmd, "ata-write")) { uint8_t b[SECTOR_SIZE]; memset(b, 0, sizeof(b)); strcopy((char *)b, "RavenOS ATA PIO write proof", sizeof(b)); vga_write(ata_write_sector(20, b) ? "ata lba20 written\n" : "ata write failed\n"); }

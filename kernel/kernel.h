@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define RAVEN_VERSION "0.14.0"
+#define RAVEN_VERSION "0.15.0"
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
 #define WYRD_CAP 256
@@ -267,6 +267,7 @@ void storage_ls_prefix(const char *prefix);
 
 int storage_fsck(void);
 void storage_debug_corrupt(const char *path);
+int storage_debug_stage_journal_save(const char *path, const char *content);
 
 void net_init(void);
 void net_render(void);
