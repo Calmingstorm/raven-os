@@ -3,28 +3,52 @@
 typedef struct {
     const char *name;
     const char *version;
-    const char *state;
-    const char *note;
+    const char *summary;
+    uint8_t installed;
 } Package;
 
 static Package packages[] = {
-    {"base", RAVEN_VERSION, "installed", "kernel, shell, wyrd timeline"},
-    {"ramfs-tools", "0.1", "installed", "cat/write/ls-style inspection"},
-    {"net-loopback", "0.1", "installed", "self-test transport scaffold"},
-    {"installer", "0.1", "planned", "dry-run image target only"},
-    {"gui", "0.0", "missing", "future compositor and panes"},
+    {"base", RAVEN_VERSION, "kernel shell and diagnostics", 1},
+    {"editor", "0.1", "line-oriented ramfs editor command", 1},
+    {"net-loop", "0.1", "loopback packet/socket tools", 1},
+    {"ravenfs", "0.1", "tiny block-image file store", 1},
+    {"games", "0.1", "demo userspace programs", 0},
+    {"web", "0.1", "future network client shell", 0},
 };
 
 void package_init(void) {
     wyrd_append("pkg", "init", "catalog", "ok", "package registry loaded");
 }
 
+int package_install(const char *name) {
+    for (uint32_t i = 0; i < sizeof(packages)/sizeof(packages[0]); i++) {
+        if (!strcmp(packages[i].name, name)) {
+            packages[i].installed = 1;
+            wyrd_append("pkg", "install", name, "ok", packages[i].version);
+            return 1;
+        }
+    }
+    wyrd_append("pkg", "install", name ? name : "", "fail", "package not found");
+    return 0;
+}
+
+void package_render_installed(void) {
+    vga_write("installed packages\n");
+    for (uint32_t i = 0; i < sizeof(packages)/sizeof(packages[0]); i++) {
+        if (packages[i].installed) {
+            vga_write("  "); vga_write(packages[i].name); vga_write(" "); vga_write(packages[i].version);
+            vga_write(" - "); vga_write(packages[i].summary); vga_putc('\n');
+        }
+    }
+}
+
 void package_render(void) {
     vga_set_color(COLOR_LIGHT_CYAN, COLOR_BLACK);
-    vga_write("packages\n");
+    vga_write("package catalog\n");
     vga_set_color(COLOR_LIGHT_GREY, COLOR_BLACK);
     for (uint32_t i = 0; i < sizeof(packages)/sizeof(packages[0]); i++) {
-        vga_write("  "); vga_write(packages[i].name); vga_write(" "); vga_write(packages[i].version);
-        vga_write(" ["); vga_write(packages[i].state); vga_write("] - "); vga_write(packages[i].note); vga_putc('\n');
+        vga_write("  "); vga_write(packages[i].installed ? "[x] " : "[ ] ");
+        vga_write(packages[i].name); vga_write(" "); vga_write(packages[i].version);
+        vga_write(" - "); vga_write(packages[i].summary); vga_putc('\n');
     }
 }

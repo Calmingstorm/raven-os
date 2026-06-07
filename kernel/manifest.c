@@ -11,10 +11,14 @@ static ManifestEntry manifest[] = {
     {"kernel.i386", RAVEN_VERSION, "active"},
     {"memory.pmm", "0.2", "active"},
     {"memory.heap", "0.1", "active"},
-    {"fs.ramfs", "0.2", "active"},
-    {"scheduler.coop", "0.1", "active"},
-    {"network.loopback", "0.1", "active"},
+    {"fs.ramfs", "0.3", "editable"},
+    {"fs.ravenfs", "0.1", "volatile-block-backed"},
+    {"scheduler.coop", "0.2", "spawn-kill-state"},
+    {"user.supervised", "0.2", "named-programs"},
+    {"network.loopback", "0.2", "socket-table"},
+    {"pkg.catalog", "0.2", "installable-flags"},
     {"security.policy", "0.1", "active"},
+    {"installer", "0.2", "writes-base-system"},
 };
 
 void manifest_init(void) {

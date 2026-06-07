@@ -90,3 +90,15 @@ void vga_draw_prompt(const char *line) {
     vga_set_color(COLOR_WHITE, COLOR_BLACK);
     vga_write(line);
 }
+
+void vga_backspace(void) {
+    if (col > 0) {
+        col--;
+    } else if (row > 0) {
+        row--;
+        col = VGA_WIDTH - 1;
+    } else {
+        return;
+    }
+    VGA[row * VGA_WIDTH + col] = entry(' ', color);
+}

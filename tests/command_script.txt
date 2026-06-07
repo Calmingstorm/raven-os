@@ -1,0 +1,15 @@
+help
+edit /home/test daily-driver-ish
+cat /home/test
+save /home/test
+rm /home/test
+load /home/test
+cat /home/test
+pkg-install games
+run netdemo
+sock
+send 1 hello-from-script
+install-run
+health
+metrics
+panic-test

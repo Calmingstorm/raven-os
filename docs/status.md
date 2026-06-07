@@ -85,3 +85,18 @@ This is still not a daily-driver OS. The repo now contains working scaffolds for
 ## Current honest viability read
 
 RavenOS now has boot, interrupts, keyboard, shell, memory allocation, paging, heap, RAM FS, storage scaffold, userspace ABI scaffold, scheduler table, network scaffold, installer plan, security policy, service supervision, health/metrics, and operator diagnostics. That is a credible hobby OS foundation. It is still not daily-driver viable until it has actual ring-3 process isolation, durable filesystem support, real storage/NIC drivers, an install target, and enough userspace to do useful work without pretending the kernel shell is a civilization.
+
+
+## Added in 0.8.0 work
+
+- Editable RAM filesystem commands with path arguments: `edit <path> <text>`, `cat <path>`, and `rm <path>`
+- Tiny RavenFS block-image file table on the existing storage scaffold
+- `save <path>`, `load <path>`, and `format` commands for the RavenFS path
+- Installer `install-run` that writes boot/config/log placeholders into RavenFS
+- Loopback socket table with `sock` and `send <socket-id> <payload>`
+- Package install flags via `pkg-install <name>`
+- Named supervised demo programs via `run hello`, `run clock`, `run writer`, and `run netdemo`
+- Task lifecycle improvements including kill/state transitions
+- Expanded health, metrics, procfs, and manifest reporting
+
+This pushes RavenOS from static subsystem scaffolds toward a small usable operator environment: files can be edited, saved to a block-image filesystem, loaded back, packages can be marked installed, sockets can carry payloads, demo programs can be run by name, and the installer writes a coherent base layout. It is still blocked from daily-driver status by ring-3 isolation, durable disk drivers, preemptive scheduling, real networking, and real userspace binaries.

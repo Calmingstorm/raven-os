@@ -8,7 +8,7 @@ This is not a Linux clone and not a POSIX cosplay project. The long-term goal is
 
 ## Current state
 
-Version: `0.7.0`
+Version: `0.8.0`
 
 Implemented:
 
@@ -40,6 +40,13 @@ Implemented:
 - Metrics/health reports
 - Console/session table
 - Snapshot/checkpoint scaffold
+- Editable RAM filesystem commands with path arguments
+- Tiny RavenFS block-image file table with save/load/format commands
+- Installer run path that writes a base system into RavenFS
+- Loopback socket table and payload send command
+- Package install flags
+- Named supervised demo programs
+- Task kill/state transitions
 - Safe simulated power controls
 - Bootable ISO generation
 - QEMU smoke-test tooling
@@ -47,10 +54,11 @@ Implemented:
 Interactive commands include:
 
 ```text
-help timeline log caps objects boot mem paging heap fs cat write
-disk net ping env sethost pkgs health metrics proc services restart
-security clock consoles switchtty manifest snapshot power reboot shutdown
-user run abi sys install alloc tasks spawn stats clear about panic-test
+help timeline log caps objects boot mem paging heap fs cat edit rm write
+disk save load format net ping sock send env sethost pkgs pkg-install
+health metrics proc services restart security clock consoles switchtty
+manifest snapshot power reboot shutdown user run abi sys install install-run
+alloc tasks spawn kill stats clear about panic-test
 ```
 
 ## Build
@@ -102,3 +110,8 @@ Near-term viability milestones:
 10. Installer image
 
 RavenOS should become something a person can boot and use for a focused set of tasks, not merely a screenshot with delusions. The gods have seen enough of those.
+
+
+## Honesty clause
+
+RavenOS is not daily-driver ready yet. See `docs/daily-driver-gap.md` for the exact blockers: ring-3 isolation, durable storage drivers, preemptive scheduling, real networking, install persistence, and real userspace binaries. Version 0.8.0 makes the operator environment more useful, but Odin is not putting lipstick on a missing disk driver.

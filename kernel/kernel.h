@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define RAVEN_VERSION "0.7.0"
+#define RAVEN_VERSION "0.8.0"
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
 #define WYRD_CAP 256
@@ -24,6 +24,9 @@
 #define PIC_EOI 0x20
 
 #define IDT_TYPE_INTERRUPT_GATE 0x8E
+
+#define SECTOR_SIZE 512
+#define DISK_SECTORS 128
 
 typedef enum {
     COLOR_BLACK = 0,
@@ -109,26 +112,28 @@ typedef struct __attribute__((packed)) {
 
 void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info_addr);
 
-uint8_t inb(uint16_t port);
-void outb(uint16_t port, uint8_t value);
-void io_wait(void);
-
+/* core */
 void vga_init(void);
 void vga_clear(void);
-void vga_set_color(uint8_t fg, uint8_t bg);
 void vga_putc(char c);
 void vga_write(const char *s);
 void vga_write_dec(uint32_t n);
 void vga_write_hex(uint32_t n);
-void vga_status(const char *left, const char *right);
-void vga_draw_prompt(const char *line);
+void vga_set_color(uint8_t fg, uint8_t bg);
+void vga_backspace(void);
 
+void outb(uint16_t port, uint8_t value);
+uint8_t inb(uint16_t port);
+void io_wait(void);
+
+void *memset(void *dst, int value, size_t n);
+void *memcpy(void *dst, const void *src, size_t n);
 size_t strlen(const char *s);
 int strcmp(const char *a, const char *b);
 int strncmp(const char *a, const char *b, size_t n);
-void *memset(void *dst, int c, size_t n);
-void *memcpy(void *dst, const void *src, size_t n);
 void strcopy(char *dst, const char *src, size_t cap);
+int strprefix(const char *s, const char *prefix);
+uint32_t parse_u32(const char *s, uint32_t fallback);
 
 void wyrd_init(void);
 void wyrd_append(const char *actor, const char *verb, const char *object, const char *result, const char *note);
@@ -136,23 +141,26 @@ void wyrd_render(uint32_t limit);
 uint32_t wyrd_count(void);
 
 void caps_init(void);
-void caps_render(void);
+void cap_grant(const char *name, const char *holder, uint32_t rights);
 int cap_check(const char *name, const char *holder);
+void caps_render(void);
 
 void objects_init(void);
+void object_add(const char *path, const char *type, const char *owner, const char *state);
 void objects_render(void);
 
 void idt_init(void);
-void isr_handler(Registers *regs);
+void isr_install(void);
 void irq_handler(Registers *regs);
 
 void timer_init(uint32_t frequency);
 uint32_t timer_ticks(void);
-void timer_wait(uint32_t ticks);
+void timer_tick(void);
 
 void keyboard_init(void);
-int keyboard_pop(char *out);
+void keyboard_irq(void);
 void keyboard_on_irq(void);
+int keyboard_pop(char *out);
 
 void shell_init(void);
 void shell_tick(void);
@@ -179,6 +187,8 @@ void task_init(void);
 void task_render(void);
 void task_tick(void);
 uint32_t task_spawn(const char *name, const char *state);
+int task_kill(uint32_t id);
+int task_set_state(uint32_t id, const char *state);
 
 void paging_init(void);
 void paging_render(void);
@@ -187,6 +197,11 @@ void ramfs_init(void);
 void ramfs_render(void);
 const char *ramfs_read(const char *path);
 int ramfs_write(const char *path, const char *content);
+int ramfs_delete(const char *path);
+int ramfs_exists(const char *path);
+uint32_t ramfs_count(void);
+const char *ramfs_path_at(uint32_t index);
+uint32_t ramfs_bytes_used(void);
 
 void syscall_init(void);
 void syscall_render(void);
@@ -195,19 +210,30 @@ uint32_t syscall_dispatch(uint32_t num, uint32_t a, uint32_t b, uint32_t c);
 void user_init(void);
 void user_render(void);
 void user_run_demo(void);
+int user_run_named(const char *name);
 
 void storage_init(void);
 void storage_render(void);
 int storage_write_sector(uint32_t lba, const uint8_t *src);
 int storage_read_sector(uint32_t lba, uint8_t *dst);
+uint32_t storage_reads(void);
+uint32_t storage_writes(void);
+int storage_format(void);
+int storage_save_file(const char *path, const char *content);
+const char *storage_load_file(const char *path);
+void storage_ls(void);
 
 void net_init(void);
 void net_render(void);
 void net_ping_self(void);
+int net_open_socket(const char *name, const char *peer);
+int net_send(uint32_t id, const char *payload);
+void net_sockets_render(void);
 
 void installer_init(void);
 void installer_render(void);
 void installer_plan(void);
+int installer_run(void);
 
 void env_init(void);
 void env_render(void);
@@ -220,6 +246,8 @@ void log_render(uint32_t limit);
 
 void package_init(void);
 void package_render(void);
+int package_install(const char *name);
+void package_render_installed(void);
 
 void power_init(void);
 void power_render(void);

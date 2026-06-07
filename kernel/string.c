@@ -37,3 +37,17 @@ void strcopy(char *dst, const char *src, size_t cap) {
     for (; i + 1 < cap && src && src[i]; i++) dst[i] = src[i];
     dst[i] = '\0';
 }
+
+int strprefix(const char *s, const char *prefix) {
+    return strncmp(s, prefix, strlen(prefix)) == 0;
+}
+
+uint32_t parse_u32(const char *s, uint32_t fallback) {
+    if (!s || !s[0]) return fallback;
+    uint32_t n = 0;
+    for (uint32_t i = 0; s[i]; i++) {
+        if (s[i] < '0' || s[i] > '9') return fallback;
+        n = n * 10 + (uint32_t)(s[i] - '0');
+    }
+    return n;
+}
