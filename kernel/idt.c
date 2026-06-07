@@ -107,6 +107,7 @@ void irq_handler(Registers *regs) {
     if (regs->int_no == 32) {
         extern void timer_on_irq(void);
         timer_on_irq();
+        task_tick();
     } else if (regs->int_no == 33) {
         keyboard_on_irq();
     }

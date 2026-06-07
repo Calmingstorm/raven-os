@@ -1,6 +1,6 @@
 #include "kernel.h"
 
-void kernel_main(void) {
+void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info_addr) {
     vga_init();
     vga_set_color(COLOR_LIGHT_CYAN, COLOR_BLACK);
     vga_write("RavenOS " RAVEN_VERSION " booting...\n");
@@ -11,10 +11,15 @@ void kernel_main(void) {
     wyrd_append("driver.vga", "mode", "text80x25", "ok", "memory mapped at 0xB8000");
     wyrd_append("kernel", "init", "wyrd-ring", "ok", "256 events reserved");
 
+    bootinfo_init(multiboot_magic, multiboot_info_addr);
+
     caps_init();
     wyrd_append("kernel", "init", "capability-table", "ok", "least-authority scaffold loaded");
     objects_init();
     wyrd_append("kernel", "init", "object-namespace", "ok", "inspectable kernel objects loaded");
+    pmm_init();
+    heap_init();
+    task_init();
 
     idt_init();
     wyrd_append("cpu", "init", "idt+pic", "ok", "interrupt gates installed");

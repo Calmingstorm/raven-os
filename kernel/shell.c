@@ -16,7 +16,7 @@ void shell_render_home(void) {
     vga_set_color(COLOR_LIGHT_GREY, COLOR_BLACK);
     vga_write("One machine. One timeline. Fewer excuses.\n\n");
     wyrd_render(8);
-    vga_write("\nCommands: help, timeline, caps, objects, stats, clear, about, panic-test\n\n");
+    vga_write("\nCommands: help, timeline, caps, objects, boot, mem, heap, alloc, tasks, spawn, stats, clear, about, panic-test\n\n");
     prompt();
 }
 
@@ -42,6 +42,12 @@ void shell_execute(const char *cmd) {
         vga_write("  timeline    render recent wyrd events\n");
         vga_write("  caps        inspect capability grants/denials\n");
         vga_write("  objects     inspect kernel object namespace\n");
+        vga_write("  boot        show multiboot memory information\n");
+        vga_write("  mem         show physical memory manager state\n");
+        vga_write("  alloc       allocate one physical frame for test/proof\n");
+        vga_write("  heap        show kernel heap state\n");
+        vga_write("  tasks       show task table\n");
+        vga_write("  spawn       register a demo task\n");
         vga_write("  stats       show timer and kernel counters\n");
         vga_write("  clear       redraw the home screen\n");
         vga_write("  about       describe RavenOS\n");
@@ -52,6 +58,22 @@ void shell_execute(const char *cmd) {
         caps_render();
     } else if (!strcmp(cmd, "objects")) {
         objects_render();
+    } else if (!strcmp(cmd, "boot")) {
+        bootinfo_render();
+    } else if (!strcmp(cmd, "mem")) {
+        pmm_render();
+    } else if (!strcmp(cmd, "alloc")) {
+        uint32_t frame = pmm_alloc_frame();
+        vga_write("allocated frame: "); vga_write_hex(frame); vga_putc('\n');
+    } else if (!strcmp(cmd, "heap")) {
+        void *p = kmalloc(32);
+        vga_write("kmalloc(32): "); vga_write_hex((uint32_t)p); vga_putc('\n');
+        heap_render();
+    } else if (!strcmp(cmd, "tasks")) {
+        task_render();
+    } else if (!strcmp(cmd, "spawn")) {
+        uint32_t id = task_spawn("demo.worker", "ready");
+        vga_write("spawned task id="); vga_write_dec(id); vga_putc('\n');
     } else if (!strcmp(cmd, "stats")) {
         stats();
     } else if (!strcmp(cmd, "clear")) {

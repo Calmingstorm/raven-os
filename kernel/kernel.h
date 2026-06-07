@@ -11,6 +11,9 @@
 #define KEYBUF_CAP 256
 #define CAPS_CAP 64
 #define OBJECT_CAP 64
+#define PMM_MAX_FRAMES 32768 /* 128 MiB at 4 KiB pages; enough for current QEMU target */
+#define PAGE_SIZE 4096
+#define MULTIBOOT_BOOTLOADER_MAGIC 0x2BADB002
 
 #define PIC1 0x20
 #define PIC2 0xA0
@@ -84,7 +87,27 @@ typedef struct {
     uint32_t eip, cs, eflags, useresp, ss;
 } Registers;
 
-void kernel_main(void);
+typedef struct __attribute__((packed)) {
+    uint32_t flags;
+    uint32_t mem_lower;
+    uint32_t mem_upper;
+    uint32_t boot_device;
+    uint32_t cmdline;
+    uint32_t mods_count;
+    uint32_t mods_addr;
+    uint32_t syms[4];
+    uint32_t mmap_length;
+    uint32_t mmap_addr;
+} MultibootInfo;
+
+typedef struct __attribute__((packed)) {
+    uint32_t size;
+    uint64_t addr;
+    uint64_t len;
+    uint32_t type;
+} MultibootMmapEntry;
+
+void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info_addr);
 
 uint8_t inb(uint16_t port);
 void outb(uint16_t port, uint8_t value);
@@ -135,5 +158,26 @@ void shell_init(void);
 void shell_tick(void);
 void shell_render_home(void);
 void shell_execute(const char *line);
+
+void bootinfo_init(uint32_t magic, uint32_t info_addr);
+void bootinfo_render(void);
+uint32_t bootinfo_mem_kib(void);
+
+void pmm_init(void);
+uint32_t pmm_total_frames(void);
+uint32_t pmm_free_frames(void);
+uint32_t pmm_alloc_frame(void);
+void pmm_free_frame(uint32_t frame_addr);
+void pmm_render(void);
+
+void heap_init(void);
+void *kmalloc(size_t size);
+void kfree_all(void);
+void heap_render(void);
+
+void task_init(void);
+void task_render(void);
+void task_tick(void);
+uint32_t task_spawn(const char *name, const char *state);
 
 #endif
