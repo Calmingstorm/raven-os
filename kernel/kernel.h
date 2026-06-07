@@ -1,0 +1,139 @@
+#ifndef RAVEN_KERNEL_H
+#define RAVEN_KERNEL_H
+
+#include <stddef.h>
+#include <stdint.h>
+
+#define RAVEN_VERSION "0.2.0"
+#define VGA_WIDTH 80
+#define VGA_HEIGHT 25
+#define WYRD_CAP 256
+#define KEYBUF_CAP 256
+#define CAPS_CAP 64
+#define OBJECT_CAP 64
+
+#define PIC1 0x20
+#define PIC2 0xA0
+#define PIC1_COMMAND PIC1
+#define PIC1_DATA (PIC1 + 1)
+#define PIC2_COMMAND PIC2
+#define PIC2_DATA (PIC2 + 1)
+#define PIC_EOI 0x20
+
+#define IDT_TYPE_INTERRUPT_GATE 0x8E
+
+typedef enum {
+    COLOR_BLACK = 0,
+    COLOR_BLUE = 1,
+    COLOR_GREEN = 2,
+    COLOR_CYAN = 3,
+    COLOR_RED = 4,
+    COLOR_MAGENTA = 5,
+    COLOR_BROWN = 6,
+    COLOR_LIGHT_GREY = 7,
+    COLOR_DARK_GREY = 8,
+    COLOR_LIGHT_BLUE = 9,
+    COLOR_LIGHT_GREEN = 10,
+    COLOR_LIGHT_CYAN = 11,
+    COLOR_LIGHT_RED = 12,
+    COLOR_LIGHT_MAGENTA = 13,
+    COLOR_LIGHT_BROWN = 14,
+    COLOR_WHITE = 15,
+} VgaColor;
+
+typedef struct {
+    uint32_t tick;
+    const char *actor;
+    const char *verb;
+    const char *object;
+    const char *result;
+    const char *note;
+} WyrdEvent;
+
+typedef struct {
+    const char *name;
+    const char *holder;
+    uint32_t rights;
+    uint8_t granted;
+} Capability;
+
+typedef struct {
+    const char *path;
+    const char *type;
+    const char *owner;
+    const char *state;
+} KernelObject;
+
+typedef struct __attribute__((packed)) {
+    uint16_t limit;
+    uint32_t base;
+} IdtPointer;
+
+typedef struct __attribute__((packed)) {
+    uint16_t offset_low;
+    uint16_t selector;
+    uint8_t zero;
+    uint8_t type_attr;
+    uint16_t offset_high;
+} IdtEntry;
+
+typedef struct {
+    uint32_t ds;
+    uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;
+    uint32_t int_no, err_code;
+    uint32_t eip, cs, eflags, useresp, ss;
+} Registers;
+
+void kernel_main(void);
+
+uint8_t inb(uint16_t port);
+void outb(uint16_t port, uint8_t value);
+void io_wait(void);
+
+void vga_init(void);
+void vga_clear(void);
+void vga_set_color(uint8_t fg, uint8_t bg);
+void vga_putc(char c);
+void vga_write(const char *s);
+void vga_write_dec(uint32_t n);
+void vga_write_hex(uint32_t n);
+void vga_status(const char *left, const char *right);
+void vga_draw_prompt(const char *line);
+
+size_t strlen(const char *s);
+int strcmp(const char *a, const char *b);
+int strncmp(const char *a, const char *b, size_t n);
+void *memset(void *dst, int c, size_t n);
+void *memcpy(void *dst, const void *src, size_t n);
+void strcopy(char *dst, const char *src, size_t cap);
+
+void wyrd_init(void);
+void wyrd_append(const char *actor, const char *verb, const char *object, const char *result, const char *note);
+void wyrd_render(uint32_t limit);
+uint32_t wyrd_count(void);
+
+void caps_init(void);
+void caps_render(void);
+int cap_check(const char *name, const char *holder);
+
+void objects_init(void);
+void objects_render(void);
+
+void idt_init(void);
+void isr_handler(Registers *regs);
+void irq_handler(Registers *regs);
+
+void timer_init(uint32_t frequency);
+uint32_t timer_ticks(void);
+void timer_wait(uint32_t ticks);
+
+void keyboard_init(void);
+int keyboard_pop(char *out);
+void keyboard_on_irq(void);
+
+void shell_init(void);
+void shell_tick(void);
+void shell_render_home(void);
+void shell_execute(const char *line);
+
+#endif
