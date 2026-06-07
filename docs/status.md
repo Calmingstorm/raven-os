@@ -149,3 +149,13 @@ This is an important daily-driver-adjacent step because the OS can now be operat
 - Process accounting now advances from the timer IRQ path alongside task accounting.
 
 This is a real durability step: RavenOS no longer merely pretends to persist files in RAM. The filesystem is still tiny and fixed-layout, but it is backed by the dev disk and validated across reboot. The big remaining blockers are unchanged in kind but narrower in scope: actual ring-3 `iret`, CR3-backed process address spaces, a bootable installed disk image without ISO assist, and a real NIC/network stack.
+
+## Added in 0.13.0 work
+
+- RavenFS gained append support through `appenddisk <path> <text>`, allowing persistent files to be extended instead of only overwritten.
+- RAMFS gained `append <path> <text>` for more practical in-session note and config editing.
+- `sync` now flushes every live RAMFS file into RavenFS, giving the operator a crude but useful persistence checkpoint.
+- `disk` reports persistent file capacity and approximate bytes used, making RavenFS less of a blind box.
+- Serial command validation now exercises append, disk append, sync, and richer RavenFS reporting.
+
+This is not glamorous, but it is the kind of unromantic filesystem ergonomics an actually usable OS needs: edit, append, save, reload, delete, list, and sync. The next hard walls remain booting directly from the installed disk image, real ring-3 execution, process address-space switching, and a NIC driver.

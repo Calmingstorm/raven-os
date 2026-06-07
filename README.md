@@ -132,3 +132,6 @@ RavenOS is not daily-driver ready yet. See `docs/daily-driver-gap.md` for the ex
 ## Current milestone: 0.12.0
 
 RavenOS now has ATA-backed RavenFS persistence validated across QEMU reboot, serial-driven integration tests, and tiny RVNEXE script manifests that can be saved, loaded, and run. It remains a research OS, not a daily driver: ring-3 isolation, CR3 process switching, real networking, and installed-disk boot are still hard blockers.
+
+
+Current version: 0.13.0

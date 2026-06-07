@@ -164,6 +164,40 @@ int storage_save_file(const char *path, const char *content) {
     return 1;
 }
 
+int storage_append_file(const char *path, const char *suffix) {
+    if (!path || !suffix || !path[0]) return 0;
+    for (uint32_t i = 0; i < DISK_FILE_CAP; i++) {
+        if (mounted[i].used && !strcmp(mounted[i].path, path)) {
+            size_t cur = strlen(mounted[i].content);
+            size_t add = strlen(suffix);
+            if (cur + add + 1 >= sizeof(mounted[i].content)) {
+                wyrd_append("storage", "append", path, "fail", "ravenfs file would exceed fixed buffer");
+                return 0;
+            }
+            memcpy(mounted[i].content + cur, suffix, add + 1);
+            encode_file(i);
+            if (!backend_write(file_sector(i), disk[file_sector(i)])) return 0;
+            writes++;
+            wyrd_append("storage", "append", path, "ok", "file extended on block image");
+            return 1;
+        }
+    }
+    return storage_save_file(path, suffix);
+}
+
+int storage_sync_ramfs(void) {
+    uint32_t synced = 0;
+    uint32_t count = ramfs_count();
+    for (uint32_t i = 0; i < count; i++) {
+        const char *path = ramfs_path_at(i);
+        const char *content = path ? ramfs_read(path) : 0;
+        if (path && content && storage_save_file(path, content)) synced++;
+    }
+    vga_write("synced ramfs files: "); vga_write_dec(synced); vga_putc('\n');
+    wyrd_append("storage", "sync", "ramfs", "ok", "ramfs flushed into ravenfs");
+    return (int)synced;
+}
+
 const char *storage_load_file(const char *path) {
     if (!path) return 0;
     for (uint32_t i = 0; i < DISK_FILE_CAP; i++) {
@@ -231,6 +265,9 @@ void storage_render(void) {
     if (ata_backed) { vga_write("  ata-base-lba: "); vga_write_dec(RAVENFS_ATA_BASE_LBA); vga_putc('\n'); }
     vga_write("  sectors: "); vga_write_dec(DISK_SECTORS); vga_write(" x "); vga_write_dec(SECTOR_SIZE); vga_write(" bytes\n");
     vga_write("  reads: "); vga_write_dec(reads); vga_write(" writes: "); vga_write_dec(writes); vga_putc('\n');
+    uint32_t used = 0; uint32_t bytes = 0;
+    for (uint32_t i = 0; i < DISK_FILE_CAP; i++) { if (mounted[i].used) { used++; bytes += strlen(mounted[i].path) + strlen(mounted[i].content); } }
+    vga_write("  files: "); vga_write_dec(used); vga_write("/"); vga_write_dec(DISK_FILE_CAP); vga_write(" approx-bytes: "); vga_write_dec(bytes); vga_putc('\n');
     vga_write("  superblock: ");
     for (uint32_t i = 0; i < 16 && buf[i]; i++) vga_putc((char)buf[i]);
     vga_putc('\n');

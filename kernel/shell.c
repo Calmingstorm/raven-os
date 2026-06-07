@@ -20,8 +20,8 @@ static void write_help(void) {
     vga_write("Commands:\n");
     vga_write("  help, clear, about, stats, serial, timeline, log, caps, objects, manifest\n");
     vga_write("  boot, mem, alloc, paging, heap, clock, consoles, switchtty\n");
-    vga_write("  fs, ls [prefix], cat [path], edit <path> <text>, write, rm <path>\n");
-    vga_write("  disk, ata, ata-read, ata-write, save <path>, load <path>, deldisk <path>, format, install, install-run\n");
+    vga_write("  fs, ls [prefix], cat [path], edit <path> <text>, append <path> <text>, write, rm <path>\n");
+    vga_write("  disk, ata, ata-read, ata-write, save <path>, load <path>, appenddisk <path> <text>, sync, deldisk <path>, format, install, install-run\n");
     vga_write("  net, ping, sock, send <socket-id> <text>\n");
     vga_write("  env, sethost, pkgs, pkg-install <name>, pkg-remove <name>, health, metrics, proc\n");
     vga_write("  services, restart, security, power, reboot, shutdown\n");
@@ -35,7 +35,7 @@ void shell_render_home(void) {
     vga_set_color(COLOR_LIGHT_GREY, COLOR_BLACK);
     vga_write("One machine. One timeline. Fewer excuses.\n\n");
     wyrd_render(8);
-    vga_write("\nType help. New in 0.12: RavenFS mounts on ATA and survives QEMU reboot.\n\n");
+    vga_write("\nType help. New in 0.13: append/sync and richer persistent RavenFS ops.\n\n");
     prompt();
 }
 
@@ -76,6 +76,24 @@ static void cmd_edit(const char *rest) {
     if (!path[0] || !rest[i]) { vga_write("usage: edit <path> <text>\n"); return; }
     if (ramfs_write(path, rest + i)) {
         vga_write("wrote "); vga_write(path); vga_putc('\n');
+    }
+}
+
+static void cmd_append(const char *rest, int disk_backed) {
+    if (!rest || !rest[0]) { vga_write(disk_backed ? "usage: appenddisk <path> <text>\n" : "usage: append <path> <text>\n"); return; }
+    char path[48];
+    uint32_t i = 0;
+    while (rest[i] && rest[i] != ' ' && i + 1 < sizeof(path)) { path[i] = rest[i]; i++; }
+    path[i] = '\0';
+    while (rest[i] == ' ') i++;
+    if (!path[0] || !rest[i]) { vga_write(disk_backed ? "usage: appenddisk <path> <text>\n" : "usage: append <path> <text>\n"); return; }
+    char suffix[180];
+    suffix[0] = '\n';
+    strcopy(suffix + 1, rest + i, sizeof(suffix) - 1);
+    if (disk_backed) {
+        if (storage_append_file(path, suffix)) { vga_write("appended disk "); vga_write(path); vga_putc('\n'); }
+    } else {
+        if (ramfs_append(path, suffix)) { vga_write("appended "); vga_write(path); vga_putc('\n'); }
     }
 }
 
@@ -122,13 +140,16 @@ void shell_execute(const char *cmd) {
     else if ((arg = arg_after(cmd, "cat "))) cmd_cat(arg);
     else if (!strcmp(cmd, "write")) { ramfs_write("/notes/live", "written through shell command"); vga_write("wrote /notes/live\n"); }
     else if ((arg = arg_after(cmd, "edit "))) cmd_edit(arg);
+    else if ((arg = arg_after(cmd, "append "))) cmd_append(arg, 0);
     else if ((arg = arg_after(cmd, "rm "))) { vga_write(ramfs_delete(arg) ? "deleted\n" : "not found in ramfs\n"); }
     else if (!strcmp(cmd, "disk")) storage_render();
     else if (!strcmp(cmd, "ata")) ata_render();
     else if (!strcmp(cmd, "ata-read")) { uint8_t b[SECTOR_SIZE]; if (ata_read_sector(20, b)) { vga_write("ata lba20: "); for (uint32_t i=0;i<48 && b[i];i++) vga_putc((char)b[i]); vga_putc('\n'); } else vga_write("ata read failed\n"); }
     else if (!strcmp(cmd, "ata-write")) { uint8_t b[SECTOR_SIZE]; memset(b, 0, sizeof(b)); strcopy((char *)b, "RavenOS ATA PIO write proof", sizeof(b)); vga_write(ata_write_sector(20, b) ? "ata lba20 written\n" : "ata write failed\n"); }
     else if ((arg = arg_after(cmd, "save "))) cmd_save(arg);
+    else if (!strcmp(cmd, "sync")) { storage_sync_ramfs(); }
     else if ((arg = arg_after(cmd, "load "))) cmd_load(arg);
+    else if ((arg = arg_after(cmd, "appenddisk "))) cmd_append(arg, 1);
     else if ((arg = arg_after(cmd, "deldisk "))) { vga_write(storage_delete_file(arg) ? "deleted from ravenfs\n" : "not found on ravenfs\n"); }
     else if (!strcmp(cmd, "format")) { storage_format(); vga_write("ravenfs formatted\n"); }
     else if (!strcmp(cmd, "net")) net_render();

@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define RAVEN_VERSION "0.12.0"
+#define RAVEN_VERSION "0.13.0"
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
 #define WYRD_CAP 256
@@ -218,6 +218,7 @@ void ramfs_init(void);
 void ramfs_render(void);
 const char *ramfs_read(const char *path);
 int ramfs_write(const char *path, const char *content);
+int ramfs_append(const char *path, const char *suffix);
 int ramfs_delete(const char *path);
 void ramfs_ls(const char *prefix);
 int ramfs_exists(const char *path);
@@ -256,6 +257,8 @@ uint32_t storage_reads(void);
 uint32_t storage_writes(void);
 int storage_format(void);
 int storage_save_file(const char *path, const char *content);
+int storage_append_file(const char *path, const char *suffix);
+int storage_sync_ramfs(void);
 const char *storage_load_file(const char *path);
 void storage_ls(void);
 int storage_delete_file(const char *path);

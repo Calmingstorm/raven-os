@@ -57,6 +57,23 @@ int ramfs_write(const char *path, const char *content) {
     return 0;
 }
 
+int ramfs_append(const char *path, const char *suffix) {
+    if (!path || !suffix) return 0;
+    int found = find_file(path);
+    if (found < 0) {
+        return ramfs_write(path, suffix);
+    }
+    size_t cur = strlen(files[found].content);
+    size_t add = strlen(suffix);
+    if (cur + add + 1 >= sizeof(files[found].content)) {
+        wyrd_append("vfs", "append", path, "fail", "ramfs file would exceed fixed buffer");
+        return 0;
+    }
+    memcpy(files[found].content + cur, suffix, add + 1);
+    wyrd_append("vfs", "append", path, "ok", "ramfs file extended");
+    return 1;
+}
+
 int ramfs_delete(const char *path) {
     int i = find_file(path);
     if (i < 0) return 0;

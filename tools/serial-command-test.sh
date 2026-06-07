@@ -10,12 +10,16 @@ LOG=/tmp/ravenos-serial-command-test.log
   printf 'ata\n'
   printf 'procps\n'
   printf 'edit /home/serial validated\n'
+  printf 'append /home/serial append-ok\n'
   printf 'cat /home/serial\n'
   printf 'save /home/serial\n'
+  printf 'appenddisk /home/serial disk-ok\n'
   printf 'rm /home/serial\n'
   printf 'load /home/serial\n'
   printf 'cat /home/serial\n'
   printf 'run netdemo\n'
+  printf 'sync\n'
+  printf 'disk\n'
   printf 'metrics\n'
 ) | timeout 12 qemu-system-i386 \
   -cdrom "$ROOT/build/ravenos.iso" \
@@ -33,6 +37,9 @@ grep -q 'rings / descriptor tables' "$CLEAN"
 grep -q 'ata probe' "$CLEAN"
 grep -q 'processes' "$CLEAN"
 grep -q '/home/serial: validated' "$CLEAN"
+grep -q 'append-ok' "$CLEAN"
+grep -q 'disk-ok' "$CLEAN"
+grep -q 'synced ramfs files:' "$CLEAN"
 grep -q 'user.netdemo: sent loopback payload' "$CLEAN"
 grep -q 'raven_task_switches' "$CLEAN"
 echo "serial command test: ok"
