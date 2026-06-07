@@ -79,3 +79,11 @@ Anything less is a strong hobby kernel, not a daily driver. Odin refuses to lie 
 - File tooling now includes prefix listing and disk deletion.
 
 This reduces the durable-storage and userspace-application gaps, but does not close them. The filesystem is fixed-slot and tiny, RVNEXE is still a manifest/script scaffold rather than native ring-3 binaries, and the OS still boots via ISO while using the raw disk as a data device.
+
+
+## What 0.14.0 moved forward
+
+- RavenFS gained per-file checksums and an `fsck` command.
+- Automated serial validation now proves the integrity check reports a clean filesystem after persistent writes, and a separate corruption test proves checksum damage is detected.
+
+This narrows the durability gap but does not close it. Mission-critical use still requires crash-consistent writes, journaling or copy-on-write metadata, broader storage drivers, installable boot, and real process isolation.

@@ -4,6 +4,7 @@ typedef struct {
     uint8_t used;
     char path[48];
     char content[320];
+    uint32_t checksum;
 } DiskFile;
 
 #define DISK_MAGIC "RAVENFS1"
@@ -16,6 +17,32 @@ static uint32_t writes;
 static uint8_t ata_backed;
 static DiskFile mounted[DISK_FILE_CAP];
 static char load_buf[320];
+
+static uint32_t checksum_bytes(const uint8_t *data, uint32_t len) {
+    uint32_t h = 2166136261u;
+    for (uint32_t i = 0; i < len; i++) {
+        h ^= data[i];
+        h *= 16777619u;
+    }
+    return h;
+}
+
+static uint32_t checksum_file_fields(const char *path, const char *content) {
+    uint32_t h = checksum_bytes((const uint8_t *)path, (uint32_t)strlen(path));
+    uint32_t c = checksum_bytes((const uint8_t *)content, (uint32_t)strlen(content));
+    return h ^ (c + 0x9e3779b9u + (h << 6) + (h >> 2));
+}
+
+static void write_u32(uint8_t *p, uint32_t v) {
+    p[0] = (uint8_t)(v & 0xff);
+    p[1] = (uint8_t)((v >> 8) & 0xff);
+    p[2] = (uint8_t)((v >> 16) & 0xff);
+    p[3] = (uint8_t)((v >> 24) & 0xff);
+}
+
+static uint32_t read_u32(const uint8_t *p) {
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
 
 static void write_magic(void) {
     memset(disk[0], 0, SECTOR_SIZE);
@@ -45,8 +72,10 @@ static void encode_file(uint32_t index) {
     uint8_t *sec = disk[file_sector(index)];
     memset(sec, 0, SECTOR_SIZE);
     sec[0] = mounted[index].used;
+    if (mounted[index].used) mounted[index].checksum = checksum_file_fields(mounted[index].path, mounted[index].content);
     memcpy(sec + 1, mounted[index].path, sizeof(mounted[index].path));
     memcpy(sec + 1 + sizeof(mounted[index].path), mounted[index].content, sizeof(mounted[index].content));
+    write_u32(sec + 1 + sizeof(mounted[index].path) + sizeof(mounted[index].content), mounted[index].checksum);
 }
 
 static void decode_file(uint32_t index) {
@@ -57,6 +86,7 @@ static void decode_file(uint32_t index) {
     mounted[index].path[sizeof(mounted[index].path) - 1] = '\0';
     memcpy(mounted[index].content, sec + 1 + sizeof(mounted[index].path), sizeof(mounted[index].content));
     mounted[index].content[sizeof(mounted[index].content) - 1] = '\0';
+    mounted[index].checksum = read_u32(sec + 1 + sizeof(mounted[index].path) + sizeof(mounted[index].content));
 }
 
 static void sync_all(void) {
@@ -246,11 +276,45 @@ void storage_ls_prefix(const char *prefix) {
     }
 }
 
+int storage_fsck(void) {
+    uint32_t used = 0;
+    uint32_t errors = 0;
+    if (!magic_valid()) errors++;
+    for (uint32_t i = 0; i < DISK_FILE_CAP; i++) {
+        if (!mounted[i].used) continue;
+        used++;
+        uint32_t expected = checksum_file_fields(mounted[i].path, mounted[i].content);
+        if (mounted[i].checksum != expected) errors++;
+        if (!mounted[i].path[0] || mounted[i].path[0] != '/') errors++;
+    }
+    vga_write("ravenfs fsck: files="); vga_write_dec(used);
+    vga_write(" errors="); vga_write_dec(errors);
+    vga_write(errors ? " status=fail\n" : " status=clean\n");
+    wyrd_append("storage", "fsck", "ravenfs", errors ? "fail" : "ok", errors ? "integrity errors found" : "file table checksums clean");
+    return errors ? 0 : 1;
+}
+
+void storage_debug_corrupt(const char *path) {
+    if (!path) return;
+    for (uint32_t i = 0; i < DISK_FILE_CAP; i++) {
+        if (mounted[i].used && !strcmp(mounted[i].path, path)) {
+            mounted[i].checksum ^= 0xfeedfaceu;
+            encode_file(i);
+            disk[file_sector(i)][1 + sizeof(mounted[i].path) + sizeof(mounted[i].content)] ^= 0x55;
+            decode_file(i);
+            backend_write(file_sector(i), disk[file_sector(i)]);
+            wyrd_append("storage", "debug-corrupt", path, "ok", "checksum deliberately damaged");
+            return;
+        }
+    }
+}
+
 void storage_ls(void) {
     vga_write("ravenfs files\n");
     for (uint32_t i = 0; i < DISK_FILE_CAP; i++) {
         if (mounted[i].used) {
-            vga_write("  "); vga_write(mounted[i].path); vga_write(" = "); vga_write(mounted[i].content); vga_putc('\n');
+            vga_write("  "); vga_write(mounted[i].path); vga_write(" = "); vga_write(mounted[i].content);
+            vga_write(" checksum="); vga_write_hex(mounted[i].checksum); vga_putc('\n');
         }
     }
 }

@@ -20,6 +20,7 @@ LOG=/tmp/ravenos-serial-command-test.log
   printf 'run netdemo\n'
   printf 'sync\n'
   printf 'disk\n'
+  printf 'fsck\n'
   printf 'metrics\n'
 ) | timeout 12 qemu-system-i386 \
   -cdrom "$ROOT/build/ravenos.iso" \
@@ -41,5 +42,7 @@ grep -q 'append-ok' "$CLEAN"
 grep -q 'disk-ok' "$CLEAN"
 grep -q 'synced ramfs files:' "$CLEAN"
 grep -q 'user.netdemo: sent loopback payload' "$CLEAN"
+grep -q 'ravenfs fsck: files=' "$CLEAN"
+grep -q 'status=clean' "$CLEAN"
 grep -q 'raven_task_switches' "$CLEAN"
 echo "serial command test: ok"

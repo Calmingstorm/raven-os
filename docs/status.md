@@ -159,3 +159,12 @@ This is a real durability step: RavenOS no longer merely pretends to persist fil
 - Serial command validation now exercises append, disk append, sync, and richer RavenFS reporting.
 
 This is not glamorous, but it is the kind of unromantic filesystem ergonomics an actually usable OS needs: edit, append, save, reload, delete, list, and sync. The next hard walls remain booting directly from the installed disk image, real ring-3 execution, process address-space switching, and a NIC driver.
+
+
+## Added in 0.14.0 work
+
+- RavenFS file slots now store a checksum over path and content.
+- `fsck` validates the RavenFS superblock, file paths, and per-file checksums.
+- Validation now exercises RavenFS integrity checks from the serial automation path.
+
+This is still not mission-critical ready. It is, however, one more step away from blind persistence and toward auditable recovery behavior.
