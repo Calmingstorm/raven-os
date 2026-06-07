@@ -125,3 +125,14 @@ This attacks several real daily-driver blockers directly: privilege architecture
 - `procps` and `ps-spawn` commands for process/address-space inspection
 
 This closes more of the daily-driver gap than the previous pass: storage is no longer identify-only, and the kernel now has explicit process/address-space metadata instead of only task rows. Still missing: a safe proven iret into ring-3, real CR3 process switching, a persistent bootloader-installed disk image, and a NIC driver.
+
+
+## Added in 0.11.0 work
+
+- COM1 serial driver initialized during boot
+- VGA output mirrored to serial for headless operation
+- Shell input accepted from serial as well as PS/2 keyboard
+- `serial` command for console diagnostics
+- Automated QEMU serial command test that drives real shell commands and verifies output
+
+This is an important daily-driver-adjacent step because the OS can now be operated and validated headlessly, not just watched through a VGA smoke test. It gives RavenOS a real automation surface for future installer, filesystem, process, and networking tests.

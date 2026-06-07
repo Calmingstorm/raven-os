@@ -41,6 +41,7 @@ void vga_set_color(uint8_t fg, uint8_t bg) {
 }
 
 void vga_putc(char c) {
+    serial_putc(c);
     if (c == '\n') {
         col = 0;
         if (++row >= VGA_HEIGHT) scroll();

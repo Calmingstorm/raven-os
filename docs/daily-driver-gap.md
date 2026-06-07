@@ -28,6 +28,11 @@ RavenOS is intentionally not branded as daily-driver ready yet. The current tree
    - Current installer writes a base system into volatile RavenFS.
    - Required: disk install, bootloader integration, upgrade/rollback story.
 
+## What 0.11.0 moved forward
+
+- Serial console input/output exists.
+- QEMU interactive command validation exists and checks real shell behavior.
+
 ## What 0.10.0 moved forward
 
 - ATA PIO read/write exists for LBA28 primary-master disks.

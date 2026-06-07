@@ -8,7 +8,7 @@ This is not a Linux clone and not a POSIX cosplay project. The long-term goal is
 
 ## Current state
 
-Version: `0.10.0`
+Version: `0.11.0`
 
 Implemented:
 
@@ -55,6 +55,9 @@ Implemented:
 - ATA PIO sector read/write path for QEMU IDE dev disks
 - Raw dev disk image tooling and QEMU disk smoke validation
 - Process table with address-space metadata
+- COM1 serial console output and input
+- Automated serial shell command validation against QEMU
+- Serial operator command: `serial`
 - Proc/process operator commands: `procps` and `ps-spawn`
 - Safe simulated power controls
 - Bootable ISO generation
@@ -63,7 +66,7 @@ Implemented:
 Interactive commands include:
 
 ```text
-help timeline log caps objects boot mem paging heap fs cat edit rm write
+help serial timeline log caps objects boot mem paging heap fs cat edit rm write
 disk ata ata-read ata-write save load format net ping sock send env sethost pkgs pkg-install
 health metrics proc services restart security clock consoles switchtty
 manifest snapshot power reboot shutdown user exec load run abi rings procps ps-spawn sys install install-run
@@ -123,4 +126,4 @@ RavenOS should become something a person can boot and use for a focused set of t
 
 ## Honesty clause
 
-RavenOS is not daily-driver ready yet. See `docs/daily-driver-gap.md` for the exact blockers: ring-3 isolation, durable storage drivers, preemptive scheduling, real networking, install persistence, and real userspace binaries. Version 0.10.0 now includes ATA PIO read/write and process/address-space metadata, but still lacks proven ring-3 execution and an installed boot target, but Odin is not putting lipstick on a missing disk driver.
+RavenOS is not daily-driver ready yet. See `docs/daily-driver-gap.md` for the exact blockers: ring-3 isolation, durable storage drivers, preemptive scheduling, real networking, install persistence, and real userspace binaries. Version 0.11.0 adds serial console I/O and automated interactive shell validation, but still lacks proven ring-3 execution and an installed boot target, but Odin is not putting lipstick on a missing disk driver.

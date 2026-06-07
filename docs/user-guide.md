@@ -18,9 +18,16 @@ Run validation:
 ./tools/check.sh
 ```
 
+Run the interactive serial shell validation directly:
+
+```bash
+./tools/serial-command-test.sh
+```
+
 Useful shell commands:
 
 - `help` - command overview
+- `serial` - serial console status
 - `timeline` - recent wyrd events
 - `health` - operator health report
 - `fs` - list RAM files

@@ -18,7 +18,7 @@ static const char *arg_after(const char *cmd, const char *prefix) {
 
 static void write_help(void) {
     vga_write("Commands:\n");
-    vga_write("  help, clear, about, stats, timeline, log, caps, objects, manifest\n");
+    vga_write("  help, clear, about, stats, serial, timeline, log, caps, objects, manifest\n");
     vga_write("  boot, mem, alloc, paging, heap, clock, consoles, switchtty\n");
     vga_write("  fs, cat [path], edit <path> <text>, write, rm <path>\n");
     vga_write("  disk, ata, ata-read, ata-write, save <path>, load <path>, format, install, install-run\n");
@@ -35,7 +35,7 @@ void shell_render_home(void) {
     vga_set_color(COLOR_LIGHT_GREY, COLOR_BLACK);
     vga_write("One machine. One timeline. Fewer excuses.\n\n");
     wyrd_render(8);
-    vga_write("\nType help. New in 0.9: GDT/TSS, int80 gate, ATA identify probe, exec registry, scheduler rotation accounting.\n\n");
+    vga_write("\nType help. New in 0.11: serial console input/output and scripted interactive validation.\n\n");
     prompt();
 }
 
@@ -99,6 +99,7 @@ void shell_execute(const char *cmd) {
     wyrd_append("shell", "exec", cmd, "ok", "command accepted");
     const char *arg;
     if (!strcmp(cmd, "help")) write_help();
+    else if (!strcmp(cmd, "serial")) serial_render();
     else if (!strcmp(cmd, "timeline")) wyrd_render(18);
     else if (!strcmp(cmd, "log")) log_render(20);
     else if (!strcmp(cmd, "caps")) caps_render();
@@ -175,25 +176,28 @@ void shell_execute(const char *cmd) {
     }
 }
 
+static void shell_accept_char(char c) {
+    if (c == '\n') {
+        vga_putc('\n');
+        line[line_len] = '\0';
+        shell_execute(line);
+        line_len = 0;
+        line[0] = '\0';
+        prompt();
+    } else if (c == '\b' || c == 127) {
+        if (line_len) {
+            line[--line_len] = '\0';
+            vga_backspace();
+        }
+    } else if (c >= 32 && c <= 126 && line_len + 1 < sizeof(line)) {
+        line[line_len++] = c;
+        line[line_len] = '\0';
+        vga_putc(c);
+    }
+}
+
 void shell_tick(void) {
     char c;
-    while (keyboard_pop(&c)) {
-        if (c == '\n') {
-            vga_putc('\n');
-            line[line_len] = '\0';
-            shell_execute(line);
-            line_len = 0;
-            line[0] = '\0';
-            prompt();
-        } else if (c == '\b') {
-            if (line_len) {
-                line[--line_len] = '\0';
-                vga_backspace();
-            }
-        } else if (c >= 32 && c <= 126 && line_len + 1 < sizeof(line)) {
-            line[line_len++] = c;
-            line[line_len] = '\0';
-            vga_putc(c);
-        }
-    }
+    while (keyboard_pop(&c)) shell_accept_char(c);
+    while (serial_read_char(&c)) shell_accept_char(c);
 }

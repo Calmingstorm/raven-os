@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define RAVEN_VERSION "0.10.0"
+#define RAVEN_VERSION "0.11.0"
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
 #define WYRD_CAP 256
@@ -127,6 +127,13 @@ void vga_write_dec(uint32_t n);
 void vga_write_hex(uint32_t n);
 void vga_set_color(uint8_t fg, uint8_t bg);
 void vga_backspace(void);
+
+void serial_init(void);
+void serial_putc(char c);
+void serial_write(const char *s);
+int serial_can_read(void);
+int serial_read_char(char *out);
+void serial_render(void);
 
 void outb(uint16_t port, uint8_t value);
 uint8_t inb(uint16_t port);
