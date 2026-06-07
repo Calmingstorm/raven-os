@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define RAVEN_VERSION "0.4.0"
+#define RAVEN_VERSION "0.7.0"
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
 #define WYRD_CAP 256
@@ -208,5 +208,50 @@ void net_ping_self(void);
 void installer_init(void);
 void installer_render(void);
 void installer_plan(void);
+
+void env_init(void);
+void env_render(void);
+const char *env_get(const char *key);
+int env_set(const char *key, const char *value);
+
+void log_init(void);
+void log_write(const char *level, const char *source, const char *message);
+void log_render(uint32_t limit);
+
+void package_init(void);
+void package_render(void);
+
+void power_init(void);
+void power_render(void);
+void power_request(const char *action);
+
+void health_render(void);
+
+void service_init(void);
+void service_render(void);
+int service_restart(const char *name);
+
+void security_init(void);
+void security_render(void);
+int security_check(const char *subject, const char *action, const char *target);
+
+void metrics_render(void);
+
+void procfs_init(void);
+void procfs_render(void);
+
+void console_init(void);
+void console_render(void);
+void console_switch(const char *name);
+
+void clock_init(void);
+void clock_render(void);
+
+void manifest_init(void);
+void manifest_render(void);
+
+void snapshot_init(void);
+void snapshot_render(void);
+void snapshot_take(void);
 
 #endif

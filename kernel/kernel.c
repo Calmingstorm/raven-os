@@ -21,8 +21,19 @@ void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info_addr) {
     paging_init();
     heap_init();
     ramfs_init();
+    procfs_init();
     storage_init();
     net_init();
+    env_init();
+    clock_init();
+    log_init();
+    package_init();
+    power_init();
+    security_init();
+    service_init();
+    console_init();
+    manifest_init();
+    snapshot_init();
     installer_init();
     syscall_init();
     task_init();
@@ -36,6 +47,7 @@ void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info_addr) {
     __asm__ volatile ("sti");
     wyrd_append("cpu", "interrupts", "sti", "ok", "timer and keyboard live");
 
+    log_write("info", "boot", "kernel initialization complete");
     shell_init();
     for (;;) {
         shell_tick();

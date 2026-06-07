@@ -58,3 +58,30 @@ These close more of the viability gap, but the honest blockers remain: ring-3 us
 - Shell commands: disk, net, ping, user, run, install
 
 This is still not a daily-driver OS. The repo now contains working scaffolds for every major viability area: boot, interrupts, keyboard, shell, event log, memory, paging, heap, scheduler, filesystem, storage, userspace ABI, network, and installer. The remaining work is turning scaffolds into hardened subsystems: ring-3, durable disk FS, real NIC/disk drivers, and installable images.
+
+
+## Added in 0.5.0 work
+
+- Runtime environment table with `env` and `sethost` commands
+- Structured diagnostic log with `log` command
+- Package catalog with `pkgs` command
+- Operator `health` report
+- Safe simulated power-control state with `power`, `reboot`, and `shutdown`
+
+## Added in 0.6.0 work
+
+- Service supervisor table with `services` and `restart` commands
+- Security policy scaffold with deny-by-default checks and `security` command
+- Metrics text export via `metrics` command
+- Procfs-style diagnostic pseudo-files via `proc` command
+
+## Added in 0.7.0 work
+
+- Multi-console/session table with `consoles` and `switchtty` commands
+- Monotonic clock/uptime renderer with `clock` command
+- Boot/component manifest with `manifest` command
+- Volatile snapshot/checkpoint scaffold with `snapshot` command
+
+## Current honest viability read
+
+RavenOS now has boot, interrupts, keyboard, shell, memory allocation, paging, heap, RAM FS, storage scaffold, userspace ABI scaffold, scheduler table, network scaffold, installer plan, security policy, service supervision, health/metrics, and operator diagnostics. That is a credible hobby OS foundation. It is still not daily-driver viable until it has actual ring-3 process isolation, durable filesystem support, real storage/NIC drivers, an install target, and enough userspace to do useful work without pretending the kernel shell is a civilization.

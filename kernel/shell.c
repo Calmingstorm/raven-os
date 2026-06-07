@@ -16,7 +16,7 @@ void shell_render_home(void) {
     vga_set_color(COLOR_LIGHT_GREY, COLOR_BLACK);
     vga_write("One machine. One timeline. Fewer excuses.\n\n");
     wyrd_render(8);
-    vga_write("\nCommands: help, timeline, caps, objects, boot, mem, paging, heap, fs, cat, write, disk, net, ping, user, run, abi, sys, install, alloc, tasks, spawn, stats, clear, about, panic-test\n\n");
+    vga_write("\nCommands: help, timeline, log, caps, objects, boot, mem, paging, heap, fs, cat, write, disk, net, ping, env, sethost, pkgs, health, metrics, proc, services, restart, security, clock, consoles, switchtty, manifest, snapshot, power, reboot, shutdown, user, run, abi, sys, install, alloc, tasks, spawn, stats, clear, about, panic-test\n\n");
     prompt();
 }
 
@@ -40,6 +40,7 @@ void shell_execute(const char *cmd) {
         vga_write("Commands:\n");
         vga_write("  help        show this command list\n");
         vga_write("  timeline    render recent wyrd events\n");
+        vga_write("  log         render structured diagnostic log\n");
         vga_write("  caps        inspect capability grants/denials\n");
         vga_write("  objects     inspect kernel object namespace\n");
         vga_write("  boot        show multiboot memory information\n");
@@ -53,6 +54,23 @@ void shell_execute(const char *cmd) {
         vga_write("  disk        show volatile block storage\n");
         vga_write("  net         show network scaffold\n");
         vga_write("  ping        loopback network self-test\n");
+        vga_write("  env         show runtime environment\n");
+        vga_write("  sethost     set hostname to raven-lab\n");
+        vga_write("  pkgs        show package catalog\n");
+        vga_write("  health      run operator health report\n");
+        vga_write("  metrics     show text metrics export\n");
+        vga_write("  proc        show procfs pseudo-files\n");
+        vga_write("  services    show service manager state\n");
+        vga_write("  restart     restart shell service in supervisor table\n");
+        vga_write("  security    show security policy and sample denial\n");
+        vga_write("  clock       show monotonic time state\n");
+        vga_write("  consoles    show console/session table\n");
+        vga_write("  switchtty   switch active console marker to tty1\n");
+        vga_write("  manifest    show boot/component manifest\n");
+        vga_write("  snapshot    take and show volatile checkpoint\n");
+        vga_write("  power       show power-control state\n");
+        vga_write("  reboot      record simulated reboot request\n");
+        vga_write("  shutdown    record simulated shutdown request\n");
         vga_write("  user        show userspace program table\n");
         vga_write("  run         run demo user programs through ABI\n");
         vga_write("  abi         show syscall ABI\n");
@@ -66,6 +84,8 @@ void shell_execute(const char *cmd) {
         vga_write("  panic-test  verify denied dangerous capability\n");
     } else if (!strcmp(cmd, "timeline")) {
         wyrd_render(18);
+    } else if (!strcmp(cmd, "log")) {
+        log_render(20);
     } else if (!strcmp(cmd, "caps")) {
         caps_render();
     } else if (!strcmp(cmd, "objects")) {
@@ -98,6 +118,49 @@ void shell_execute(const char *cmd) {
     } else if (!strcmp(cmd, "ping")) {
         net_ping_self();
         vga_write("loopback ping ok\n");
+    } else if (!strcmp(cmd, "env")) {
+        env_render();
+    } else if (!strcmp(cmd, "sethost")) {
+        env_set("hostname", "raven-lab");
+        vga_write("hostname=raven-lab\n");
+    } else if (!strcmp(cmd, "pkgs")) {
+        package_render();
+    } else if (!strcmp(cmd, "health")) {
+        health_render();
+    } else if (!strcmp(cmd, "metrics")) {
+        metrics_render();
+    } else if (!strcmp(cmd, "proc")) {
+        procfs_render();
+    } else if (!strcmp(cmd, "services")) {
+        service_render();
+    } else if (!strcmp(cmd, "restart")) {
+        service_restart("shell");
+        vga_write("shell service restart recorded\n");
+    } else if (!strcmp(cmd, "security")) {
+        security_render();
+        vga_write("sample shell trigger panic => ");
+        vga_write(security_check("shell", "trigger", "panic") ? "allow" : "deny");
+        vga_putc('\n');
+    } else if (!strcmp(cmd, "clock")) {
+        clock_render();
+    } else if (!strcmp(cmd, "consoles")) {
+        console_render();
+    } else if (!strcmp(cmd, "switchtty")) {
+        console_switch("tty1");
+        console_render();
+    } else if (!strcmp(cmd, "manifest")) {
+        manifest_render();
+    } else if (!strcmp(cmd, "snapshot")) {
+        snapshot_take();
+        snapshot_render();
+    } else if (!strcmp(cmd, "power")) {
+        power_render();
+    } else if (!strcmp(cmd, "reboot")) {
+        power_request("reboot");
+        vga_write("reboot request recorded, not executed in prototype\n");
+    } else if (!strcmp(cmd, "shutdown")) {
+        power_request("shutdown");
+        vga_write("shutdown request recorded, not executed in prototype\n");
     } else if (!strcmp(cmd, "user")) {
         user_render();
     } else if (!strcmp(cmd, "run")) {

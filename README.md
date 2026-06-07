@@ -8,7 +8,7 @@ This is not a Linux clone and not a POSIX cosplay project. The long-term goal is
 
 ## Current state
 
-Version: `0.4.0`
+Version: `0.7.0`
 
 Implemented:
 
@@ -22,20 +22,35 @@ Implemented:
 - Wyrd event ring buffer
 - Capability table scaffold
 - Kernel object namespace scaffold
+- Multiboot memory-map inspection
+- Physical frame allocator
+- First-stage identity paging
+- Tiny kernel heap
+- RAM filesystem plus procfs-style diagnostic pseudo-files
+- Volatile sector storage scaffold
+- Cooperative task table scaffold
+- Userspace ABI dispatcher scaffold and demo programs
+- Loopback network scaffold
+- Installer dry-run planner
+- Runtime environment table
+- Structured diagnostic log
+- Package/component manifest
+- Security policy scaffold
+- Service supervisor table
+- Metrics/health reports
+- Console/session table
+- Snapshot/checkpoint scaffold
+- Safe simulated power controls
 - Bootable ISO generation
 - QEMU smoke-test tooling
 
-Interactive commands:
+Interactive commands include:
 
 ```text
-help
-timeline
-caps
-objects
-stats
-clear
-about
-panic-test
+help timeline log caps objects boot mem paging heap fs cat write
+disk net ping env sethost pkgs health metrics proc services restart
+security clock consoles switchtty manifest snapshot power reboot shutdown
+user run abi sys install alloc tasks spawn stats clear about panic-test
 ```
 
 ## Build
