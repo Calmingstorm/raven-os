@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define RAVEN_VERSION "0.8.0"
+#define RAVEN_VERSION "0.9.0"
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
 #define WYRD_CAP 256
@@ -112,6 +112,12 @@ typedef struct __attribute__((packed)) {
 
 void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info_addr);
 
+void gdt_init(void);
+void gdt_set_kernel_stack(uint32_t stack_top);
+uint32_t gdt_user_code_selector(void);
+uint32_t gdt_user_data_selector(void);
+void gdt_render(void);
+
 /* core */
 void vga_init(void);
 void vga_clear(void);
@@ -186,6 +192,8 @@ void heap_render(void);
 void task_init(void);
 void task_render(void);
 void task_tick(void);
+uint32_t task_switches(void);
+void task_set_preemptive(uint32_t enabled);
 uint32_t task_spawn(const char *name, const char *state);
 int task_kill(uint32_t id);
 int task_set_state(uint32_t id, const char *state);
@@ -206,11 +214,21 @@ uint32_t ramfs_bytes_used(void);
 void syscall_init(void);
 void syscall_render(void);
 uint32_t syscall_dispatch(uint32_t num, uint32_t a, uint32_t b, uint32_t c);
+uint32_t syscall_from_registers(Registers *regs);
+
+void exec_init(void);
+int exec_load(const char *path);
+int exec_run(const char *name);
+void exec_render(void);
 
 void user_init(void);
 void user_render(void);
 void user_run_demo(void);
 int user_run_named(const char *name);
+
+void ata_init(void);
+uint32_t ata_present_flag(void);
+void ata_render(void);
 
 void storage_init(void);
 void storage_render(void);

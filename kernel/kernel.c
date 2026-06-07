@@ -10,6 +10,7 @@ void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info_addr) {
     wyrd_append("boot", "enter", "kernel_main", "ok", "stack online");
     wyrd_append("driver.vga", "mode", "text80x25", "ok", "memory mapped at 0xB8000");
     wyrd_append("kernel", "init", "wyrd-ring", "ok", "256 events reserved");
+    gdt_init();
 
     bootinfo_init(multiboot_magic, multiboot_info_addr);
 
@@ -22,6 +23,7 @@ void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info_addr) {
     heap_init();
     ramfs_init();
     procfs_init();
+    ata_init();
     storage_init();
     net_init();
     env_init();
@@ -38,6 +40,7 @@ void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info_addr) {
     syscall_init();
     task_init();
     user_init();
+    exec_init();
 
     idt_init();
     wyrd_append("cpu", "init", "idt+pic", "ok", "interrupt gates installed");

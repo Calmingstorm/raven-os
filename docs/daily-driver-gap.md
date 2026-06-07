@@ -28,6 +28,14 @@ RavenOS is intentionally not branded as daily-driver ready yet. The current tree
    - Current installer writes a base system into volatile RavenFS.
    - Required: disk install, bootloader integration, upgrade/rollback story.
 
+## What 0.9.0 moved forward
+
+- GDT/TSS descriptor setup exists.
+- DPL3 int 0x80 gate is installed and routed into syscall dispatch.
+- ATA IDENTIFY probe exists.
+- Timer IRQ rotates task accounting.
+- RVNEXE executable registry/loader scaffold exists.
+
 ## What 0.8.0 moved forward
 
 - Editable RAM filesystem commands: `edit`, `cat <path>`, `rm`.

@@ -21,11 +21,11 @@ static void write_help(void) {
     vga_write("  help, clear, about, stats, timeline, log, caps, objects, manifest\n");
     vga_write("  boot, mem, alloc, paging, heap, clock, consoles, switchtty\n");
     vga_write("  fs, cat [path], edit <path> <text>, write, rm <path>\n");
-    vga_write("  disk, save <path>, load <path>, format, install, install-run\n");
+    vga_write("  disk, ata, save <path>, load <path>, format, install, install-run\n");
     vga_write("  net, ping, sock, send <socket-id> <text>\n");
     vga_write("  env, sethost, pkgs, pkg-install <name>, health, metrics, proc\n");
     vga_write("  services, restart, security, power, reboot, shutdown\n");
-    vga_write("  user, run [name], abi, sys, tasks, spawn, kill <id>, snapshot, panic-test\n");
+    vga_write("  user, exec, load <path>, run [name], abi, rings, sys, tasks, spawn, kill <id>, snapshot, panic-test\n");
 }
 
 void shell_render_home(void) {
@@ -35,7 +35,7 @@ void shell_render_home(void) {
     vga_set_color(COLOR_LIGHT_GREY, COLOR_BLACK);
     vga_write("One machine. One timeline. Fewer excuses.\n\n");
     wyrd_render(8);
-    vga_write("\nType help. New in 0.8: editable files, RavenFS save/load, package install, sockets, named user programs.\n\n");
+    vga_write("\nType help. New in 0.9: GDT/TSS, int80 gate, ATA identify probe, exec registry, scheduler rotation accounting.\n\n");
     prompt();
 }
 
@@ -115,6 +115,7 @@ void shell_execute(const char *cmd) {
     else if ((arg = arg_after(cmd, "edit "))) cmd_edit(arg);
     else if ((arg = arg_after(cmd, "rm "))) { vga_write(ramfs_delete(arg) ? "deleted\n" : "not found\n"); }
     else if (!strcmp(cmd, "disk")) storage_render();
+    else if (!strcmp(cmd, "ata")) ata_render();
     else if ((arg = arg_after(cmd, "save "))) cmd_save(arg);
     else if ((arg = arg_after(cmd, "load "))) cmd_load(arg);
     else if (!strcmp(cmd, "format")) { storage_format(); vga_write("ravenfs formatted\n"); }
@@ -146,8 +147,11 @@ void shell_execute(const char *cmd) {
     else if (!strcmp(cmd, "reboot")) { power_request("reboot"); vga_write("reboot request recorded, not executed in prototype\n"); }
     else if (!strcmp(cmd, "shutdown")) { power_request("shutdown"); vga_write("shutdown request recorded, not executed in prototype\n"); }
     else if (!strcmp(cmd, "user")) user_render();
+    else if (!strcmp(cmd, "exec")) exec_render();
+    else if ((arg = arg_after(cmd, "load "))) { vga_write(exec_load(arg) ? "loaded\n" : "load failed\n"); }
     else if (!strcmp(cmd, "run")) user_run_demo();
-    else if ((arg = arg_after(cmd, "run "))) { if (!user_run_named(arg)) vga_write("program not found\n"); }
+    else if ((arg = arg_after(cmd, "run "))) { if (!exec_run(arg)) vga_write("program not found or not executable\n"); }
+    else if (!strcmp(cmd, "rings")) gdt_render();
     else if (!strcmp(cmd, "abi")) syscall_render();
     else if (!strcmp(cmd, "install")) { installer_render(); installer_plan(); }
     else if (!strcmp(cmd, "install-run")) { installer_run(); storage_render(); }

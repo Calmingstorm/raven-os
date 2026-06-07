@@ -74,6 +74,13 @@ IRQ 13 45
 IRQ 14 46
 IRQ 15 47
 
+.global isr128
+isr128:
+    cli
+    pushl $0
+    pushl $128
+    jmp isr_common_stub
+
 .extern isr_handler
 .extern irq_handler
 

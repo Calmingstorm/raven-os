@@ -29,7 +29,9 @@ Useful shell commands:
 - `install-run` - write base system to RavenFS
 - `pkgs` - package catalog
 - `pkg-install games` - mark a package installed
-- `run hello`, `run clock`, `run writer`, `run netdemo` - supervised demo programs
+- `exec`, `load /bin/hello.rvn`, `run hello`, `run clock`, `run writer`, `run netdemo` - executable registry and supervised demo programs
+- `rings` - inspect GDT/TSS/ring architecture
+- `ata` - inspect ATA identify probe
 - `net`, `sock`, `send 1 hello`, `ping` - loopback network/socket tools
 - `tasks`, `spawn`, `kill <id>` - task table operations
 - `metrics`, `proc`, `manifest`, `services`, `security` - diagnostics

@@ -12,6 +12,7 @@ extern void irq0(void); extern void irq1(void); extern void irq2(void); extern v
 extern void irq4(void); extern void irq5(void); extern void irq6(void); extern void irq7(void);
 extern void irq8(void); extern void irq9(void); extern void irq10(void); extern void irq11(void);
 extern void irq12(void); extern void irq13(void); extern void irq14(void); extern void irq15(void);
+extern void isr128(void);
 
 static IdtEntry idt[256];
 static IdtPointer idtp;
@@ -90,12 +91,17 @@ void idt_init(void) {
     set_gate(45, (uint32_t)irq13, 0x08, IDT_TYPE_INTERRUPT_GATE);
     set_gate(46, (uint32_t)irq14, 0x08, IDT_TYPE_INTERRUPT_GATE);
     set_gate(47, (uint32_t)irq15, 0x08, IDT_TYPE_INTERRUPT_GATE);
+    set_gate(128, (uint32_t)isr128, 0x08, 0xEE); /* int 0x80, DPL3 */
     __asm__ volatile ("lidt (%0)" : : "r"(&idtp));
     outb(PIC1_DATA, 0xFC); // enable IRQ0 + IRQ1 only
     outb(PIC2_DATA, 0xFF);
 }
 
 void isr_handler(Registers *regs) {
+    if (regs->int_no == 128) {
+        regs->eax = syscall_from_registers(regs);
+        return;
+    }
     wyrd_append("cpu", "exception", "interrupt", "fault", "processor trap");
     vga_set_color(COLOR_LIGHT_RED, COLOR_BLACK);
     vga_write("\nCPU exception "); vga_write_dec(regs->int_no);

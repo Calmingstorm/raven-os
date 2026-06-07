@@ -12,5 +12,6 @@ void metrics_render(void) {
     vga_write("  raven_ramfs_bytes "); vga_write_dec(ramfs_bytes_used()); vga_putc('\n');
     vga_write("  raven_storage_reads "); vga_write_dec(storage_reads()); vga_putc('\n');
     vga_write("  raven_storage_writes "); vga_write_dec(storage_writes()); vga_putc('\n');
+    vga_write("  raven_task_switches "); vga_write_dec(task_switches()); vga_putc('\n');
     vga_write("  raven_heap_bytes tracked via heap command\n");
 }

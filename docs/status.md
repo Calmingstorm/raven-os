@@ -100,3 +100,16 @@ RavenOS now has boot, interrupts, keyboard, shell, memory allocation, paging, he
 - Expanded health, metrics, procfs, and manifest reporting
 
 This pushes RavenOS from static subsystem scaffolds toward a small usable operator environment: files can be edited, saved to a block-image filesystem, loaded back, packages can be marked installed, sockets can carry payloads, demo programs can be run by name, and the installer writes a coherent base layout. It is still blocked from daily-driver status by ring-3 isolation, durable disk drivers, preemptive scheduling, real networking, and real userspace binaries.
+
+
+## Added in 0.9.0 work
+
+- GDT and TSS setup with kernel/user code and data descriptors
+- User-callable DPL3 `int 0x80` syscall gate wired into the existing ABI dispatcher
+- Expanded syscall table with note-write and loopback-send calls
+- ATA primary-master IDENTIFY probe and `ata` diagnostic command
+- Round-robin timer IRQ task rotation accounting and switch metrics
+- RVNEXE executable registry/loader scaffold with `/bin/*.rvn` manifests
+- `exec`, `load <path>`, `run <name>`, and `rings` operator commands
+
+This attacks several real daily-driver blockers directly: privilege architecture is now described by actual descriptors, syscalls can enter through an interrupt gate, storage has begun probing hardware instead of only pretending inside RAM, the scheduler tracks timer-driven task rotation, and executable loading has a first format/registry. The missing parts remain substantial: no proven ring-3 iret execution, no full context switch, no ATA sector read/write path, no network card driver, and no persistent installed boot yet.

@@ -8,7 +8,7 @@ This is not a Linux clone and not a POSIX cosplay project. The long-term goal is
 
 ## Current state
 
-Version: `0.8.0`
+Version: `0.9.0`
 
 Implemented:
 
@@ -47,6 +47,11 @@ Implemented:
 - Package install flags
 - Named supervised demo programs
 - Task kill/state transitions
+- GDT/TSS setup with kernel and user segment descriptors
+- DPL3 `int 0x80` syscall gate wired into the ABI dispatcher
+- ATA primary-master identify probe
+- Round-robin timer IRQ task rotation accounting
+- RVNEXE executable registry/loader scaffold
 - Safe simulated power controls
 - Bootable ISO generation
 - QEMU smoke-test tooling
@@ -57,7 +62,7 @@ Interactive commands include:
 help timeline log caps objects boot mem paging heap fs cat edit rm write
 disk save load format net ping sock send env sethost pkgs pkg-install
 health metrics proc services restart security clock consoles switchtty
-manifest snapshot power reboot shutdown user run abi sys install install-run
+manifest snapshot power reboot shutdown user exec load run abi rings sys install install-run
 alloc tasks spawn kill stats clear about panic-test
 ```
 
@@ -114,4 +119,4 @@ RavenOS should become something a person can boot and use for a focused set of t
 
 ## Honesty clause
 
-RavenOS is not daily-driver ready yet. See `docs/daily-driver-gap.md` for the exact blockers: ring-3 isolation, durable storage drivers, preemptive scheduling, real networking, install persistence, and real userspace binaries. Version 0.8.0 makes the operator environment more useful, but Odin is not putting lipstick on a missing disk driver.
+RavenOS is not daily-driver ready yet. See `docs/daily-driver-gap.md` for the exact blockers: ring-3 isolation, durable storage drivers, preemptive scheduling, real networking, install persistence, and real userspace binaries. Version 0.9.0 pushes into the hard daily-driver blockers, but Odin is not putting lipstick on a missing disk driver.

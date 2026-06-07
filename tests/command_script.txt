@@ -1,4 +1,10 @@
 help
+rings
+abi
+ata
+exec
+load /bin/hello.rvn
+run hello
 edit /home/test daily-driver-ish
 cat /home/test
 save /home/test
