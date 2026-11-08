@@ -128,7 +128,8 @@ code { font-family: var(--mono); font-size: .92em; color: var(--green); }
 .status[data-state="running"]::before { background: var(--green); }
 .status[data-state="stopped"]::before { background: #ff5555; }
 
-.controls { display: flex; gap: 8px; }
+.controls { display: flex; gap: 6px; }
+.controls button { padding: 4px 10px; font-size: .875rem; }
 
 button {
   font: inherit;
@@ -148,15 +149,15 @@ h2 { margin: 0 0 6px; font-size: 1.15rem; }
 .try > p, .doom > p, .about p { margin: 0 0 12px; color: var(--muted); max-width: 65ch; }
 
 .doom .play { font-family: var(--mono); color: var(--amber); border-color: #5a4a1e; }
-.controls {
+.keys {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 6px 20px;
   margin: 16px 0;
 }
-.controls div { display: flex; align-items: baseline; gap: 10px; }
-.controls dt { flex: none; min-width: 7.5em; }
-.controls dd { margin: 0; color: var(--muted); }
+.keys div { display: flex; align-items: baseline; gap: 10px; }
+.keys dt { flex: none; min-width: 7.5em; }
+.keys dd { margin: 0; color: var(--muted); }
 kbd {
   font: .85rem var(--mono);
   color: var(--text);
