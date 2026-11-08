@@ -22,12 +22,15 @@ const types = {
   '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css',
   '.wasm': 'application/wasm', '.svg': 'image/svg+xml', '.txt': 'text/plain', '.json': 'application/json',
 };
+// Locally, each Doom data disk chunk is delayed like a real connection's: RavenOS has to wait out a slow chunk
+// rather than give up on it. The live site (--url) brings its own latency.
+const DISK_DELAY_MS = Number(process.env.RAVENOS_DISK_DELAY_MS ?? 400);
 let server;
 let url = option('--url');
 if (!url) {
   const dist = path.join(root, 'web/dist');
   assert.ok(fs.existsSync(path.join(dist, 'index.html')), 'no web/dist/index.html: run tools/build-web.sh first');
-  server = http.createServer((req, res) => {
+  server = http.createServer(async (req, res) => {
     let name = decodeURIComponent(new URL(req.url, 'http://local').pathname);
     if (name.endsWith('/')) name += 'index.html';
     const file = path.join(dist, path.normalize(name));
@@ -35,7 +38,23 @@ if (!url) {
       res.writeHead(404).end();
       return;
     }
-    res.writeHead(200, { 'content-type': types[path.extname(file)] || 'application/octet-stream' });
+    const type = types[path.extname(file)] || 'application/octet-stream';
+    // The Doom disk is read in byte ranges, answered as nginx does: v86 rejects a whole file sent for a range.
+    const range = /^bytes=(\d+)-(\d+)$/.exec(req.headers.range || '');
+    if (range) {
+      await new Promise(resolve => setTimeout(resolve, DISK_DELAY_MS));
+      const size = fs.statSync(file).size;
+      const start = Number(range[1]);
+      const end = Math.min(Number(range[2]), size - 1);
+      const part = Buffer.alloc(end - start + 1);
+      const fd = fs.openSync(file, 'r');
+      fs.readSync(fd, part, 0, part.length, start);
+      fs.closeSync(fd);
+      res.writeHead(206, { 'content-type': type, 'content-range': `bytes ${start}-${end}/${size}` });
+      res.end(part);
+      return;
+    }
+    res.writeHead(200, { 'content-type': type });
     res.end(fs.readFileSync(file));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -271,6 +290,75 @@ try {
   results.push(`desktop: booted in ${desktop.bootSeconds.toFixed(1)} s; chip, line box and keyboard reach the shell; `
     + 'buttons replace half-typed input; keys only while focused, Shift+Esc leaves, Tab stays inside; '
     + 'gfx pattern twice, text screen back at full width');
+
+  // Doom from the page's own button on a fresh machine, through the menu and back to the shell.
+  const doom = await open(1280);
+  const doomStarted = Date.now();
+  await doom.page.getByRole('button', { name: 'Start Doom' }).click();
+  await doom.page.waitForFunction(() => document.querySelector('#screen canvas').width === 640, null, { timeout: 120000 })
+    .catch(async () => assert.fail(`Doom never reached graphics; the screen shows:\n${await screenText(doom.page)}`));
+  const doomSeconds = (Date.now() - doomStarted) / 1000;
+  await doom.page.waitForTimeout(2000);
+  const doomColours = () => doom.page.evaluate(() => {
+    const canvas = document.querySelector('#screen canvas');
+    const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+    const seen = new Set();
+    for (let i = 0; i < data.length; i += 4 * 7) seen.add((data[i] << 16) | (data[i + 1] << 8) | data[i + 2]);
+    return seen.size;
+  });
+  assert.ok(await doomColours() >= 64, 'the first Doom frames are the title screen, not a blank or test pattern');
+  assert.equal(await doom.page.evaluate(() => document.activeElement.id), 'screen', 'after the button, keys go to Doom');
+  // Esc opens the menu; up from New Game wraps to Quit Game; Enter asks; y quits.
+  for (const key of ['Escape', 'ArrowUp', 'Enter', 'y']) {
+    await doom.page.keyboard.press(key);
+    await doom.page.waitForTimeout(800);
+  }
+  await doom.page.waitForFunction(() => document.querySelector('#screen canvas').width === 720, null, { timeout: 30000 })
+    .catch(async () => assert.fail('Quit Game never returned to the text screen'));
+  await waitForScreen(doom.page, 'Doom session ended: exit (status=0).');
+  assert.match(await screenText(doom.page), /I_InitGraphics/, "Doom's startup log stays in the console");
+  if (shots) await doom.page.screenshot({ path: path.join(shots, 'check-web-doom.png'), fullPage: true });
+  assert.deepEqual(doom.problems, []);
+  results.push(`doom: Start Doom reached graphics in ${doomSeconds.toFixed(1)} s`
+    + `${server ? ` with each disk chunk delayed ${DISK_DELAY_MS} ms` : ''}; the title frame, then the menu's Quit Game `
+    + 'back to the shell (exit 0) with the startup log kept');
+  await doom.page.close();
+
+  // The Doom disk's details never arrive: the machine boots anyway, without Doom, and doom says so.
+  const unanswered = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await unanswered.route('**/build.json', () => {});
+  const unansweredStarted = Date.now();
+  await unanswered.goto(url);
+  await unanswered.waitForFunction(() => document.getElementById('status').dataset.state === 'running', null, { timeout: 30000 })
+    .catch(async () => assert.fail(`no boot while build.json is unanswered; overlay: ${await unanswered.textContent('#overlay')}`));
+  const unansweredSeconds = (Date.now() - unansweredStarted) / 1000;
+  await unanswered.focus('#screen');
+  await unanswered.keyboard.type('doom\n');
+  await waitForScreen(unanswered, 'no Doom data disk is attached');
+  results.push(`unanswered build.json: booted in ${unansweredSeconds.toFixed(1)} s without the Doom disk, and doom says so`);
+  await unanswered.close();
+
+  // A CPU fault, sent to the page as the kernel's serial port sends it (through v86's CPU-side bus, which the page's
+  // listeners hear): the banner and the stopped status hold through focus changes, and the machine bar's Restart
+  // gives a fresh machine.
+  const faulted = await open(1280);
+  await faulted.page.evaluate(text => {
+    for (const c of text) window.emulator.emulator_bus.send('serial0-output-byte', c.charCodeAt(0));
+  }, '\r\nFATAL exception=0x0000000E EIP=0x00101234 error=0x00000002 CR2=0x00000000 cause=not-present write supervisor\r\ninterrupts disabled; halted\r\n');
+  await faulted.page.waitForFunction(() => document.getElementById('overlay').dataset.state === 'error'
+    && !document.getElementById('overlay').hidden, null, { timeout: 10000 })
+    .catch(() => assert.fail('the CPU fault never showed its banner'));
+  assert.match(await faulted.page.textContent('#overlay-text'), /CPU fault \(exception=0x0000000E EIP=0x00101234/);
+  await faulted.page.focus('#type-input');
+  await faulted.page.focus('#screen');
+  assert.equal(await faulted.page.evaluate(() => document.getElementById('status').dataset.state), 'stopped',
+    'focus changes keep the stopped status after a fault');
+  await Promise.all([faulted.page.waitForEvent('load'), faulted.page.click('#restart')]);
+  await faulted.page.waitForFunction(() => document.getElementById('status').dataset.state === 'running', null, { timeout: 30000 })
+    .catch(async () => assert.fail(`Restart after a fault didn't bring up a fresh machine; overlay: ${await faulted.page.textContent('#overlay')}`));
+  assert.equal(await faulted.page.isVisible('#overlay'), false, 'the fresh machine has no fault banner');
+  results.push('cpu fault: the banner and stopped status hold through focus changes, and Restart gives a fresh machine');
+  await faulted.page.close();
 
   // Phone: the text view is open from the start and follows what the machine prints. Run on a CPU slowed
   // fourfold like a cheap phone: a slow machine once lost the key that should end gfx, because it arrived while

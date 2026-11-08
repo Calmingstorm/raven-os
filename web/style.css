@@ -143,9 +143,29 @@ button {
 button:hover { border-color: #444a58; }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
-.try, .about { margin-top: 40px; }
+.try, .doom, .about { margin-top: 40px; }
 h2 { margin: 0 0 6px; font-size: 1.15rem; }
-.try > p, .about p { margin: 0 0 12px; color: var(--muted); max-width: 65ch; }
+.try > p, .doom > p, .about p { margin: 0 0 12px; color: var(--muted); max-width: 65ch; }
+
+.doom .play { font-family: var(--mono); color: var(--amber); border-color: #5a4a1e; }
+.controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 6px 20px;
+  margin: 16px 0;
+}
+.controls div { display: flex; align-items: baseline; gap: 10px; }
+.controls dt { flex: none; min-width: 7.5em; }
+.controls dd { margin: 0; color: var(--muted); }
+kbd {
+  font: .85rem var(--mono);
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chips button { font-family: var(--mono); color: var(--green); }
@@ -166,6 +186,7 @@ h2 { margin: 0 0 6px; font-size: 1.15rem; }
 
 footer { margin-top: 48px; padding: 20px 0 40px; border-top: 1px solid var(--line); }
 footer p { margin: 0; color: var(--muted); font-size: .9rem; }
+footer p + p { margin-top: 8px; }
 
 .noscript { width: min(100% - 32px, 752px); margin: 24px auto; color: var(--amber); }
 

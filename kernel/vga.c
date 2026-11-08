@@ -26,6 +26,9 @@ static size_t input_row;
 static size_t input_col;
 static size_t input_len;
 static size_t input_cursor;
+/* While graphics own the display, output still lands in the buffers (and on serial) but never touches VRAM or the
+ * CRTC; vga_refresh() shows it once text mode is back. */
+static int hardware_off;
 
 static uint8_t crtc_read(uint8_t index) {
     outb(0x3D4, index);
@@ -38,6 +41,7 @@ static void crtc_write(uint8_t index, uint8_t value) {
 }
 
 static void cursor_update(void) {
+    if (hardware_off) return;
     size_t y = row;
     size_t x = col;
     if (input_active) {
@@ -53,6 +57,7 @@ static void cursor_update(void) {
 }
 
 static void render(void) {
+    if (hardware_off) return;
     for (size_t y = 0; y < VGA_HEIGHT; y++) {
         const uint16_t *src;
         if (y < view_back) {
@@ -67,7 +72,7 @@ static void render(void) {
 
 static void live_cell(size_t y, size_t x, uint16_t cell) {
     live[y][x] = cell;
-    if (y + view_back < VGA_HEIGHT) VGA[(y + view_back) * VGA_WIDTH + x] = cell;
+    if (!hardware_off && y + view_back < VGA_HEIGHT) VGA[(y + view_back) * VGA_WIDTH + x] = cell;
 }
 
 static uint16_t entry(char c, uint8_t ccolor) {
@@ -119,6 +124,10 @@ void vga_clear(void) {
 }
 
 /* Repaint the screen from the console's own buffers and restore the cursor, e.g. after graphics mode. */
+void vga_hardware(int on) {
+    hardware_off = !on;
+}
+
 void vga_refresh(void) {
     render();
     cursor_update();

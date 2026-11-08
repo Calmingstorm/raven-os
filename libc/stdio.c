@@ -5,8 +5,9 @@
 #include <string.h>
 #include "raven_wad.h"
 
-/* Diagnostics always use serial, including while the framebuffer is owned. */
-extern void serial_putc(char c);
+/* Console output goes to the kernel console, which mirrors every byte to serial. While a graphics session owns
+ * the display the console keeps the text without touching VGA and shows it when text mode returns. */
+extern void vga_putc(char c);
 struct RavenDoomStream {
     RavenWadFile *wad;
     long position;
@@ -83,7 +84,7 @@ size_t fwrite(const void *src, size_t size, size_t count, FILE *stream) {
     if (!src) { fail(s, EINVAL); return 0; }
     const char *bytes = src;
     size_t n = size * count;
-    for (size_t i = 0; i < n; ++i) serial_putc(bytes[i]);
+    for (size_t i = 0; i < n; ++i) vga_putc(bytes[i]);
     return count;
 }
 int fseek(FILE *stream, long offset, int origin) {

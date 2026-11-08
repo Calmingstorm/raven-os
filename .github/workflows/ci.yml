@@ -16,6 +16,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential gcc-multilib binutils grub-pc-bin xorriso mtools qemu-system-x86 python3
+      - name: Cache the Freedoom release and the pinned doomgeneric commit
+        uses: actions/cache@v4
+        with:
+          path: build/cache
+          key: doom-inputs-freedoom-0.13.0-doomgeneric-e257a09
       - name: Build and smoke test
         run: ./tools/check.sh
       - name: Upload ISO artifact
@@ -35,9 +40,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential gcc-multilib binutils grub-pc-bin xorriso mtools
+      - name: Cache the Freedoom release and the pinned doomgeneric commit
+        uses: actions/cache@v4
+        with:
+          path: build/cache
+          key: doom-inputs-freedoom-0.13.0-doomgeneric-e257a09
       - name: Build the web bundle
         run: ./tools/build-web.sh
-      - name: Browser check (desktop, phone, failed download, mixed input, focus)
+      - name: Browser check (desktop, Doom over a slow disk, phone, failed download, mixed input, focus)
         run: |
           mkdir -p /tmp/check-web
           node tools/check-web.mjs --screenshots /tmp/check-web

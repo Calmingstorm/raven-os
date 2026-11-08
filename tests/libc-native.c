@@ -20,7 +20,7 @@ extern int host_alloc_fail;
 
 static char serial[8192];
 static size_t serial_count;
-void serial_putc(char c) {
+void vga_putc(char c) {
     CHECK(serial_count < sizeof(serial));
     if (serial_count < sizeof(serial)) serial[serial_count++] = c;
 }

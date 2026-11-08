@@ -39,6 +39,33 @@ static const char shifted[128] = {
 
 static void compiler_barrier(void) { __asm__ volatile ("" ::: "memory"); }
 
+/* Private instruction seam, as in raven_clock.c: the host test replaces the interrupt-flag instructions. */
+#ifndef KEYBOARD_TEST
+static uint32_t keyboard_irq_save(void) {
+    uint32_t flags;
+    __asm__ volatile ("pushfl; popl %0; cli" : "=r"(flags) :: "memory");
+    return flags;
+}
+static void keyboard_irq_restore(uint32_t flags) {
+    if (flags & (1u << 9)) __asm__ volatile ("sti" ::: "memory");
+}
+#else
+uint32_t keyboard_irq_save(void);
+void keyboard_irq_restore(uint32_t flags);
+#endif
+
+/* One recovery point, under one interrupt guard: the keys physically down, the dropped count, and an empty queue.
+ * Every transition still queued is already reflected in the snapshot, so replaying one later (a press whose release
+ * was dropped, say) would undo it; anything that arrives after the guard is newer and stays queued. */
+uint32_t keyboard_recovery_snapshot(uint8_t out[32]) {
+    uint32_t flags = keyboard_irq_save();
+    for (unsigned i = 0; i < sizeof(held); i++) out[i] = held[i];
+    uint32_t dropped = dropped_events;
+    tail = head;
+    keyboard_irq_restore(flags);
+    return dropped;
+}
+
 static void push_event(KeyEvent event) {
     uint32_t h = head, next = (h + 1) % KEYBUF_CAP;
     if (next == tail) {
@@ -100,7 +127,11 @@ void keyboard_feed_scancode(uint8_t byte) {
         case 0x50: code = KEY_DOWN; break;
         case 0x51: code = KEY_PAGEDOWN; break;
         case 0x53: code = KEY_DELETE; break;
-        default: return; /* includes both halves of PrintScreen */
+        /* PrintScreen's two halves (the second is the fake Shift some keyboards also send around other extended
+         * keys) aren't keys. Every other extended key is queued, KEY_NONE when the shell has no use for it
+         * (Insert, the Windows keys), so raw consumers like Doom still see it. */
+        case 0x2a: case 0x37: return;
+        default: code = KEY_NONE; break;
         }
     } else {
         switch (sc) {
@@ -116,7 +147,13 @@ void keyboard_feed_scancode(uint8_t byte) {
         case 0x0f: code = KEY_TAB; break;
         case 0x1c: code = KEY_ENTER; break;
         default:
-            if (!plain[sc]) return;
+            /* Keys with no character (F1-F12, NumLock, the keypad) queue as KEY_NONE for raw consumers. Bytes past
+             * the standard keys are controller replies and overruns, not keys. */
+            if (!plain[sc]) {
+                if (sc == 0 || sc > 0x58) return;
+                code = KEY_NONE;
+                break;
+            }
             shift = !!(left_shift || right_shift);
             if (plain[sc] >= 'a' && plain[sc] <= 'z') shift ^= caps_lock;
             ascii = shift ? shifted[sc] : plain[sc];

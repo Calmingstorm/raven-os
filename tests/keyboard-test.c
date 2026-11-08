@@ -9,6 +9,12 @@ void wyrd_append(const char *a, const char *b, const char *c, const char *d, con
 }
 
 #define CHECK(x) do { if (!(x)) { fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #x); exit(1); } } while (0)
+/* The driver's interrupt-flag seam: the snapshot must read with interrupts off, and turn them back on. */
+static int irqs_off, snapshots;
+uint32_t keyboard_irq_save(void) { CHECK(!irqs_off); irqs_off = 1; return 0x200u; }
+void keyboard_irq_restore(uint32_t flags) { CHECK(irqs_off && flags == 0x200u); irqs_off = 0; snapshots++; }
+static int held_bit(const uint8_t held[32], unsigned slot) { return (held[slot / 8] >> (slot % 8)) & 1; }
+
 static void feed(uint8_t b) { keyboard_feed_scancode(b); }
 static void ext(uint8_t b) { feed(0xe0); feed(b); }
 static void expect(uint16_t sc, KeyCode code, char ascii, uint8_t mods, uint8_t down) {
@@ -94,6 +100,16 @@ int main(void) {
                                   0xe1,0x1d,0x45,0xe1,0x9d,0xc5};
       for (i=0; i<sizeof(ignored); ++i) feed(ignored[i]); }
     empty(); port_byte=0x1e; keyboard_on_irq(); expect(0x1e,KEY_CHARACTER,'a',0,1);
+    /* Keys the shell has no use for still reach raw consumers (Doom's F10, Insert), as KEY_NONE. Controller
+     * replies and overrun bytes are not keys. */
+    { static const uint8_t fkeys[] = {0x3b,0x44,0x45,0x47,0x57,0x58};
+      for (i=0; i<sizeof(fkeys); ++i) {
+          feed(fkeys[i]); feed(fkeys[i] | 0x80);
+          expect(fkeys[i],KEY_NONE,0,0,1); expect(fkeys[i],KEY_NONE,0,0,0);
+      } }
+    ext(0x52); ext(0xd2); expect(0xe052,KEY_NONE,0,0,1); expect(0xe052,KEY_NONE,0,0,0);
+    ext(0x5b); ext(0xdb); expect(0xe05b,KEY_NONE,0,0,1); expect(0xe05b,KEY_NONE,0,0,0);
+    feed(0x00); feed(0xfa); feed(0xfe); feed(0xee); feed(0xff); empty();
     keyboard_init();
     CHECK(keyboard_dropped_events() == 0);
     burst_line(150,0);
@@ -135,6 +151,29 @@ int main(void) {
         empty();
         keyboard_init();
         feed(0x1c); CHECK(keyboard_pop(&e) && !e.repeat); /* init forgets held keys */
+    }
+    /* The recovery snapshot is the driver's physical record, dropped events included, with their count, and it
+     * empties the queue in the same guarded instant; later events queue normally. */
+    keyboard_init();
+    {
+        uint8_t held[32];
+        unsigned set = 0;
+        KeyEvent e;
+        feed(0x1d); ext(0x48);
+        CHECK(keyboard_recovery_snapshot(held) == 0 && snapshots == 1 && !irqs_off);
+        for (i = 0; i < 256; ++i) set += held_bit(held, i);
+        CHECK(set == 2 && held_bit(held, 0x1d) && held_bit(held, 0x80 | 0x48));
+        empty();                                       /* both makes are in the snapshot, not the queue */
+        for (i = 0; i < KEYBUF_CAP; ++i) ext(0x48);   /* fill the queue with Up repeats */
+        feed(0x9d);                                    /* Ctrl's release is dropped... */
+        CHECK(keyboard_dropped_events() >= 1);
+        CHECK(keyboard_recovery_snapshot(held) == keyboard_dropped_events());
+        CHECK(!held_bit(held, 0x1d) && held_bit(held, 0x80 | 0x48));   /* ...but the record knows it's up */
+        CHECK(!irqs_off);
+        empty();
+        feed(0x1e);                                    /* after the snapshot, events queue as before */
+        CHECK(keyboard_pop(&e) && e.scancode == 0x1e && e.pressed);
+        empty();
     }
     puts("keyboard tests passed");
     return 0;

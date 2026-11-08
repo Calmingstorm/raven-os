@@ -44,7 +44,9 @@ using a FILE pointer after close/reset is invalid, including after slot reuse.
 * Checked signed `fseek` supports SET/CUR/END and positions through LONG_MAX,
   including beyond EOF. Failure does not change position. Negative targets are
   EINVAL; arithmetic overflow is EOVERFLOW.
-* stdout/stderr write synchronously through `serial_putc`, never VGA/framebuffer.
+* stdout/stderr write synchronously through the kernel console (`vga_putc`), which mirrors every byte to
+  serial. While a graphics session owns the display, the console keeps the text without touching VGA registers,
+  VRAM or the framebuffer, and shows it when text mode returns.
   `fflush(NULL)` is valid because there are no buffered bytes. WAD writes,
   remove, rename and mkdir fail EROFS. Invalid stream operations fail EBADF.
 * `printf` family implements d/i/u/o/x/X, c/s/p/percent, `-+ #0`, decimal width,

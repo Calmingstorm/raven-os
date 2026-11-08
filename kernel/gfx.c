@@ -254,6 +254,7 @@ static void back_to_text(void) {
     registers_restore(&saved_registers);
     font_access(0);
     palette_access(0);
+    vga_hardware(1);
     vga_refresh();
 }
 
@@ -263,15 +264,29 @@ static void refuse(const char *why) {
     vga_write("gfx: "); vga_write(why); vga_write("; staying in text mode\n");
 }
 
-void gfx_command(void) {
+/* A graphics session at 640x400x32 for any caller (gfx itself, Doom): the same device checks, register, font and
+ * palette saving, and mapping as before. Returns the mapped framebuffer and its stride in pixels, or 0 with the
+ * reason in *why and the text console untouched. gfx_end() restores the console; it is idempotent. */
+static int session_active;
+static GfxProbe session_probe;
+
+int gfx_available(const char **why) {
     GfxProbe p;
     probe(&p);
-    if (p.problem) { refuse(p.problem); return; }
-    if (!vga_window) vga_window = (volatile uint8_t *)paging_map_mmio(VGA_WINDOW_PHYS, VGA_WINDOW_BYTES);
-    if (!vga_window) { refuse("the VGA window could not be mapped"); return; }
+    *why = p.problem;
+    return !p.problem;
+}
 
-    discard_queued_input();
-    pci_enable_memory(&p.pci);
+volatile uint32_t *gfx_begin(uint32_t *stride, const char **why) {
+    *why = 0;
+    if (session_active) { *why = "graphics are already in use"; return 0; }
+    probe(&session_probe);
+    if (session_probe.problem) { *why = session_probe.problem; return 0; }
+    if (!vga_window) vga_window = (volatile uint8_t *)paging_map_mmio(VGA_WINDOW_PHYS, VGA_WINDOW_BYTES);
+    if (!vga_window) { *why = "the VGA window could not be mapped"; return 0; }
+
+    vga_hardware(0);
+    pci_enable_memory(&session_probe.pci);
     registers_save(&saved_registers);
     font_access(1);
     palette_access(1);
@@ -282,28 +297,46 @@ void gfx_command(void) {
     bga_write(BGA_REG_ENABLE, BGA_ENABLED | BGA_LFB_ENABLED);
     if (bga_read(BGA_REG_XRES) != GFX_WIDTH || bga_read(BGA_REG_YRES) != GFX_HEIGHT || bga_read(BGA_REG_BPP) != GFX_BPP) {
         back_to_text();
-        refuse("the display rejected 640x400x32");
-        return;
+        *why = "the display rejected 640x400x32";
+        return 0;
     }
     uint32_t virtual_width = bga_read(BGA_REG_VIRT_WIDTH);
     if (virtual_width < GFX_WIDTH) virtual_width = GFX_WIDTH;
     uint32_t pitch = virtual_width * 4, span = pitch * GFX_HEIGHT;
-    if (span > p.bar_size || (p.video_memory && span > p.video_memory)) {
+    if (span > session_probe.bar_size || (session_probe.video_memory && span > session_probe.video_memory)) {
         back_to_text();
-        refuse("the framebuffer doesn't fit the display's memory");
-        return;
+        *why = "the framebuffer doesn't fit the display's memory";
+        return 0;
     }
-    volatile uint32_t *fb = (volatile uint32_t *)paging_map_mmio(p.bar_base, span);
+    volatile uint32_t *fb = (volatile uint32_t *)paging_map_mmio(session_probe.bar_base, span);
     if (!fb) {
         back_to_text();
-        refuse("the framebuffer could not be mapped");
-        return;
+        *why = "the framebuffer could not be mapped";
+        return 0;
     }
-    draw_pattern(fb, pitch / 4, &p);
+    session_active = 1;
     entries++;
+    *stride = pitch / 4;
+    return fb;
+}
+
+void gfx_end(void) {
+    if (!session_active) return;
+    session_active = 0;
+    back_to_text();
+}
+
+void gfx_command(void) {
+    uint32_t stride;
+    const char *why;
+    /* Input queued before graphics appears doesn't count (see discard_queued_input). */
+    discard_queued_input();
+    volatile uint32_t *fb = gfx_begin(&stride, &why);
+    if (!fb) { refuse(why); return; }
+    draw_pattern(fb, stride, &session_probe);
     wyrd_append("gfx", "enter", "bga", "ok", "640x400x32 test pattern");
     wait_for_fresh_key();
-    back_to_text();
+    gfx_end();
     wyrd_append("gfx", "exit", "bga", "ok", "text console restored");
     vga_write("gfx: back in text mode\n");
 }
