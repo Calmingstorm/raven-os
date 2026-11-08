@@ -13,8 +13,9 @@ const textToggle = document.getElementById('text-toggle');
 const PROMPT = 'raven>';
 // Page load to the shell prompt. The prompt normally appears in under a second once the files are in.
 const BOOT_TIMEOUT_MS = 30000;
-// RavenFS's disk: blank, and kept only in this tab's memory.
-const SCRATCH_DISK_BYTES = 1024 * 1024;
+// A blank first disk, only there because v86 attaches the Doom disk solely beside one. At 64 sectors it is smaller
+// than RavenFS needs, so RavenFS keeps its RAM backend, as it always has here: nothing persists across reloads.
+const SCRATCH_DISK_BYTES = 64 * 512;
 
 // The Doom data disk, named by its hash in build.json. Nothing of it downloads until Doom reads it, and then only
 // the fixed-size chunks it reads; the image is a whole number of chunks, which v86's chunked reads need.
@@ -37,7 +38,7 @@ const emulator = new V86({
   vga_bios: { url: 'vgabios.bin' },
   // The kernel is a Multiboot image, so v86 loads it directly: no bootloader or boot disk.
   multiboot: { url: 'ravenos.kernel' },
-  // v86 attaches the second disk (the primary slave, where RavenOS looks for Doom) only beside a first one.
+  // The Doom disk is the primary slave, which v86 attaches only beside a primary master.
   hda: { buffer: new ArrayBuffer(SCRATCH_DISK_BYTES) },
   hdb: await doomDisk(),
   // RavenOS has no mouse driver; this also stops a click on the screen from grabbing the pointer.

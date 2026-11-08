@@ -29,7 +29,7 @@ gfx = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gfx)
 check, Machine = gfx.check, gfx.Machine
 DISK = ROOT / "build/doom/freedoom1.img"
-SCRATCH_BYTES = 1024 * 1024
+SCRATCH_BYTES = 64 * 512  # as on the web page: too small for RavenFS, which then never writes it
 
 
 def sha256(path):
@@ -57,7 +57,7 @@ def play(qemu, kernel, directory):
         m.type("clear\n")
         m.wait_for_text("Type help or help controls")
         time.sleep(0.5)
-        cleared_before = m.screen("cleared-before")
+        cleared_before, text_before = m.screen("cleared-before"), m.text()
 
         started = time.monotonic()
         m.type("doom\n")
@@ -97,9 +97,14 @@ def play(qemu, kernel, directory):
         m.type("clear\n")
         m.wait_for_text("Type help or help controls")
         time.sleep(0.5)
-        cleared_after = m.screen("cleared-after")
-        differing = sum(1 for y in range(400) for x in range(720) if cleared_after[2][y][x] != cleared_before[2][y][x])
-        check(differing == 0, f"{differing} pixels of the cleared console differ after Doom: text mode not restored")
+        cleared_after, text_after = m.screen("cleared-after"), m.text()
+        # The cleared screen lists the latest timeline events, which now include Doom's, so compare the rows whose
+        # text is the same: those must render pixel for pixel as before (font, palette and mode all restored).
+        same = [row for row in range(25) if text_before[row] == text_after[row]]
+        check(len(same) >= 10, f"only {len(same)} console rows read the same before and after Doom")
+        differing = sum(1 for row in same for y in range(row * 16, row * 16 + 16) for x in range(720)
+                        if cleared_after[2][y][x] != cleared_before[2][y][x])
+        check(differing == 0, f"{differing} pixels differ in console rows whose text didn't change: text mode not restored")
     finally:
         m.close()
     check(sha256(scratch) == scratch_before, "the blank master changed")
