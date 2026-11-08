@@ -27,14 +27,16 @@ def check(condition, message):
 
 
 class Machine:
-    def __init__(self, qemu, kernel, vga, directory):
+    def __init__(self, qemu, kernel, vga, directory, name=None, extra=()):
+        name = name or vga
         self.directory = directory
         self.sequence = 0
-        self.log = (directory / f"qemu-{vga}.log").open("wb")
-        self.serial_path = directory / f"serial-{vga}.log"
-        command = [qemu, "-accel", "tcg", "-m", "128M", "-vga", vga, "-display", "none", "-monitor", "none",
+        self.log = (directory / f"qemu-{name}.log").open("wb")
+        self.serial_path = directory / f"serial-{name}.log"
+        command = [qemu, "-accel", "tcg", "-m", "128M", "-vga", vga, *extra, "-display", "none", "-monitor", "none",
                    "-nic", "none", "-serial", "file:" + str(self.serial_path), "-kernel", str(kernel),
-                   "-no-reboot", "-qmp", "unix:" + str(directory / f"qmp-{vga}") + ",server=on,wait=off"]
+                   "-no-reboot", "-qmp", "unix:" + str(directory / f"qmp-{name}") + ",server=on,wait=off"]
+        vga = name
         self.process = subprocess.Popen(command, stdout=self.log, stderr=self.log)
         self.sock = socket.socket(socket.AF_UNIX)
         deadline = time.monotonic() + 10
@@ -74,11 +76,14 @@ class Machine:
             check(time.monotonic() < deadline, message)
             time.sleep(0.1)
 
+    def event(self, qcode, down):
+        self.call("input-send-event", {"events": [
+            {"type": "key", "data": {"down": down, "key": {"type": "qcode", "data": qcode}}}]})
+        time.sleep(0.02)
+
     def key(self, qcode):
         for down in (True, False):
-            self.call("input-send-event", {"events": [
-                {"type": "key", "data": {"down": down, "key": {"type": "qcode", "data": qcode}}}]})
-            time.sleep(0.02)
+            self.event(qcode, down)
 
     def type(self, text):
         for char in text:
@@ -104,7 +109,8 @@ class Machine:
         return ["".join(chr(c & 255) for c in cells[y * 80:(y + 1) * 80]).rstrip() for y in range(25)]
 
     def wait_for_text(self, wanted, seconds=10):
-        self.wait_for(lambda: any(wanted in row for row in self.text()), f"screen never showed {wanted!r}", seconds)
+        # Rows are right-trimmed, so a line wrapped at column 80 joins back up when the rows are concatenated.
+        self.wait_for(lambda: wanted in "".join(self.text()), f"screen never showed {wanted!r}", seconds)
 
     def wait_for_size(self, size, name, seconds=10):
         deadline = time.monotonic() + seconds
@@ -148,11 +154,24 @@ def std_vga(qemu, kernel, directory):
             _, _, after = m.screen(f"text-after-{cycle}")
             differing = sum(1 for y in range(top) for x in range(720) if after[y][x] != before[y][x])
             check(differing == 0, f"cycle {cycle}: {differing} pixels of the untouched rows changed: font not restored")
+        # A held key's typematic repeat isn't a fresh press. Enter held down launches gfx; a second Enter make
+        # without a release must leave graphics up, and so must its release. Only a new key press ends it.
+        m.type("gfx")
+        m.event("ret", True)
+        m.wait_for_size((640, 400), "gfx-held")
+        m.event("ret", True)
+        time.sleep(1.0)
+        check(m.screen("gfx-held-repeat")[:2] == (640, 400), "a repeated Enter make ended gfx")
+        m.event("ret", False)
+        time.sleep(0.5)
+        check(m.screen("gfx-held-release")[:2] == (640, 400), "the Enter release ended gfx")
+        m.key("x")
+        m.wait_for_size((720, 400), "text-after-held")
         m.type("gfx info\n")
-        m.wait_for_text("entered: 3")
+        m.wait_for_text("entered: 4")
         m.type("mem\n")
         m.wait_for_text("physical memory manager")
-        return "std-vga: 3 cycles, exact bars and ramp, text rows pixel-identical afterwards, prompt usable"
+        return "std-vga: 3 cycles, exact bars and ramp, text rows pixel-identical afterwards; a held Enter's repeat and release don't end gfx; prompt usable"
     finally:
         m.close()
 
@@ -170,6 +189,23 @@ def cirrus(qemu, kernel, directory):
         m.close()
 
 
+def two_vgas(qemu, kernel, directory):
+    # The Bochs ports belong to the std-vga card while Cirrus is the first VGA controller: gfx must refuse
+    # rather than write the pattern into the wrong card's memory.
+    # With two VGA devices QEMU doesn't route the legacy text window where pmemsave reads it, so this scenario
+    # reads the console's serial mirror instead.
+    m = Machine(qemu, kernel, "cirrus", directory, name="two-vgas", extra=("-device", "VGA"))
+    try:
+        refusal = b"gfx: more than one VGA controller; staying in text mode"
+        m.type("gfx\n")
+        m.wait_for(lambda: refusal in m.serial(), "gfx did not refuse two VGA controllers")
+        m.type("mem\n")
+        m.wait_for(lambda: b"physical memory manager" in m.serial().split(refusal)[-1], "the shell stopped answering")
+        return f"cirrus + std-vga: refused with \"{refusal.decode()}\", the shell still answers"
+    finally:
+        m.close()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--qemu", default="qemu-system-i386")
@@ -177,7 +213,8 @@ def main():
     args = parser.parse_args()
     directory = Path(tempfile.mkdtemp(prefix="raven-gfx-"))
     try:
-        results = [std_vga(args.qemu, args.kernel, directory), cirrus(args.qemu, args.kernel, directory)]
+        results = [std_vga(args.qemu, args.kernel, directory), cirrus(args.qemu, args.kernel, directory),
+                   two_vgas(args.qemu, args.kernel, directory)]
     except Exception:
         print(f"gfx-qemu-test: FAILED; evidence in {directory}")
         raise

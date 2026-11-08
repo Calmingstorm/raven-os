@@ -77,9 +77,23 @@ static uint16_t bga_read(uint16_t reg) {
     return inw(BGA_DATA);
 }
 
+/* The Bochs VBE ports aren't tied to a PCI function, so the interface is only trusted on a known
+ * Bochs-compatible controller that is the machine's only VGA controller: with two, the ports may belong to the
+ * other one and the pattern would be written into the wrong card's memory. */
+static int bochs_compatible(const PciDevice *d) {
+    return (d->vendor == 0x1234 && d->device == 0x1111)     /* QEMU std-vga, Bochs, v86 */
+        || (d->vendor == 0x80EE && d->device == 0xBEEF);    /* VirtualBox VGA */
+}
+
 static void probe(GfxProbe *p) {
+    PciDevice second;
     memset(p, 0, sizeof(*p));
-    if (!pci_find_class(0x03, 0x00, &p->pci)) { p->problem = "no PCI VGA display device"; return; }
+    if (!pci_find_class(0x03, 0x00, 0, &p->pci)) { p->problem = "no PCI VGA display device"; return; }
+    if (pci_find_class(0x03, 0x00, 1, &second)) {
+        p->problem = "more than one VGA controller";
+        return;
+    }
+    if (!bochs_compatible(&p->pci)) { p->problem = "the display has no Bochs VBE interface"; return; }
     p->id = bga_read(BGA_REG_ID);
     if (p->id < BGA_ID_MIN || p->id > BGA_ID_MAX) { p->problem = "the display has no Bochs VBE interface"; return; }
     if (!pci_memory_bar(&p->pci, 0, &p->bar_base, &p->bar_size)) {
@@ -221,14 +235,14 @@ static void discard_queued_input(void) {
 }
 
 /* Only a new press of a non-modifier key (or a serial character) returns. Releases don't count, including the
- * release of the Enter that launched gfx. */
+ * release of the Enter that launched gfx, and neither do typematic repeats of a key held since before. */
 static void wait_for_fresh_key(void) {
     KeyEvent key;
     char c;
     for (;;) {
         while (keyboard_pop(&key)) {
-            if (key.pressed && key.code != KEY_NONE && key.code != KEY_SHIFT && key.code != KEY_CTRL &&
-                key.code != KEY_ALT && key.code != KEY_CAPSLOCK) return;
+            if (key.pressed && !key.repeat && key.code != KEY_NONE && key.code != KEY_SHIFT &&
+                key.code != KEY_CTRL && key.code != KEY_ALT && key.code != KEY_CAPSLOCK) return;
         }
         if (serial_read_char(&c)) return;
         __asm__ volatile ("hlt");
@@ -257,6 +271,7 @@ void gfx_command(void) {
     if (!vga_window) { refuse("the VGA window could not be mapped"); return; }
 
     discard_queued_input();
+    pci_enable_memory(&p.pci);
     registers_save(&saved_registers);
     font_access(1);
     palette_access(1);

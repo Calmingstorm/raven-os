@@ -26,7 +26,7 @@ void pci_write32(const PciDevice *dev, uint8_t offset, uint32_t value) {
 }
 
 /* Brute-force scan of every bus and slot; functions 1-7 only on multifunction devices. */
-int pci_find_class(uint8_t class_code, uint8_t subclass, PciDevice *out) {
+int pci_find_class(uint8_t class_code, uint8_t subclass, uint32_t nth, PciDevice *out) {
     for (uint32_t bus = 0; bus < 256; bus++) {
         for (uint8_t slot = 0; slot < 32; slot++) {
             uint32_t id = read_at((uint8_t)bus, slot, 0, 0);
@@ -37,6 +37,7 @@ int pci_find_class(uint8_t class_code, uint8_t subclass, PciDevice *out) {
                 if ((id & 0xFFFF) == 0xFFFF) continue;
                 uint32_t class_reg = read_at((uint8_t)bus, slot, func, 0x08);
                 if ((uint8_t)(class_reg >> 24) != class_code || (uint8_t)(class_reg >> 16) != subclass) continue;
+                if (nth--) continue;
                 out->bus = (uint8_t)bus;
                 out->slot = slot;
                 out->func = func;
@@ -69,8 +70,8 @@ int pci_memory_bar(const PciDevice *dev, uint8_t index, uint32_t *base, uint32_t
     pci_write32(dev, offset, 0xFFFFFFFFu);
     uint32_t mask = pci_read32(dev, offset) & ~0xFu;
     pci_write32(dev, offset, original);
-    /* The device needs memory decoding to answer at all; firmware normally leaves it on. */
-    pci_write32(dev, PCI_COMMAND, (command & 0xFFFF) | PCI_COMMAND_MEMORY);
+    /* Sizing is observational: the command register goes back exactly as it was. */
+    pci_write32(dev, PCI_COMMAND, command & 0xFFFF);
     if (!mask) return 0;
     uint32_t bytes = ~mask + 1;
     uint32_t start = original & ~0xFu;
@@ -78,4 +79,10 @@ int pci_memory_bar(const PciDevice *dev, uint8_t index, uint32_t *base, uint32_t
     *base = start;
     *size = bytes;
     return 1;
+}
+
+/* A device has to decode memory accesses before its BAR answers; firmware normally leaves this on. */
+void pci_enable_memory(const PciDevice *dev) {
+    uint32_t command = pci_read32(dev, PCI_COMMAND) & 0xFFFF;
+    if (!(command & PCI_COMMAND_MEMORY)) pci_write32(dev, PCI_COMMAND, command | PCI_COMMAND_MEMORY);
 }
