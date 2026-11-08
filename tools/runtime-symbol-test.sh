@@ -21,9 +21,11 @@ if nm "$KERNEL" | grep -vE '[[:space:]]__divdi3$' | grep -E '\b(__.*(df|sf|di)3|
     echo 'Unexpected float/compiler-runtime or host-process dependency' >&2
     exit 1
 fi
-# objdump decodes instructions, avoiding byte-pattern false positives in data.
+# objdump decodes instructions, avoiding byte-pattern false positives in data. Every x87 mnemonic starts with f (and
+# AVX's with v); MMX and SSE show in their registers or state instructions.
 objdump -d --no-show-raw-insn "$KERNEL" > "$TMP/disassembly"
-if grep -E '^[[:space:]]*[[:xdigit:]]+:[[:space:]]+(f(ld|st|add|sub|mul|div|com|ucom|ild|ist|init|ninit|wait|chs|abs|sqrt|xch)|[a-z0-9]+[[:space:]].*%(xmm|ymm|mm)[0-9])' "$TMP/disassembly"; then
+if grep -E '^[[:space:]]*[[:xdigit:]]+:[[:space:]]+((f|v)[a-z0-9]*|emms|wait|ldmxcsr|stmxcsr)([[:space:]]|$)|%(x|y|z)?mm[0-9]' "$TMP/disassembly" > "$TMP/fpu"; then
+    head -n 20 "$TMP/fpu" >&2
     echo 'Unexpected x87/SIMD use in runtime kernel' >&2
     exit 1
 fi

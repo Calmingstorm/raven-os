@@ -88,18 +88,29 @@ readelf -h "$BUILD/_divdi3.o" | grep -q 'Class:.*ELF32' || { echo "doom-audit: _
 [ "$(nm --defined-only "$BUILD/_divdi3.o" | awk '{print $2 " " $3}')" = "T __divdi3" ] && [ -z "$(nm -u "$BUILD/_divdi3.o")" ] ||
   { echo "doom-audit: _divdi3.o defines or needs more than __divdi3" >&2; exit 1; }
 
+# Every x87 instruction's mnemonic starts with f (and AVX's with v); MMX and SSE show in their registers or state
+# instructions. Decide first, then show a few: a pipe into head could mask the result.
 objdump -d --no-show-raw-insn "${engine[@]}" "$BUILD/_divdi3.o" > "$TMP/disassembly"
-if grep -E '^[[:space:]]*[[:xdigit:]]+:[[:space:]]+(f(ld|st|add|sub|mul|div|com|ucom|ild|ist|init|ninit|wait|chs|abs|sqrt|xch|xsave|xrstor|nstcw|ldcw|nstsw)|emms|[a-z0-9]+[[:space:]].*%(xmm|ymm|mm)[0-9])' "$TMP/disassembly" | head -20 >&2; then
-  echo "doom-audit: x87 or SIMD instructions in the engine" >&2
+if grep -E '^[[:space:]]*[[:xdigit:]]+:[[:space:]]+((f|v)[a-z0-9]*|emms|wait|ldmxcsr|stmxcsr)([[:space:]]|$)|%(x|y|z)?mm[0-9]' "$TMP/disassembly" > "$TMP/fpu"; then
+  head -n 20 "$TMP/fpu" >&2
+  echo "doom-audit: x87 or SIMD instructions in the engine ($(wc -l < "$TMP/fpu") lines)" >&2
   exit 1
 fi
 
-# Format strings, as the compiler sees them with RavenOS's macros: no %f/%e/%g/%a and no %n.
+# Format strings as the compiler sees them, with RavenOS's macros and adjacent literals joined ("%" "f" is "%f"):
+# no %f/%e/%g/%a and no %n. Escaped percent signs (%%) are literal text.
 for src in "$ROOT"/third_party/doomgeneric/*.c; do
   gcc -m32 -E -P -ffreestanding -nostdinc -isystem "$(gcc -print-file-name=include)" -I"$ROOT/libc/include" \
     -I"$ROOT/kernel" -I"$ROOT/third_party/doomgeneric" -DRAVENOS "$src" |
-    grep -oE '"([^"\\]|\\.)*"' | grep -E '%[-+ #0]*[0-9*]*(\.[0-9*]*)?(hh|h|ll|l|L|z|j|t)?[fFeEgGaAn]' |
-    sed "s|^|$(basename "$src"): |" || true
+    python3 -c '
+import re, sys
+literal = r"\"(?:[^\"\\\n]|\\.)*\""
+conversion = re.compile(r"%[-+ #0]*[0-9*]*(?:\.[0-9*]*)?(?:hh|h|ll|l|L|z|j|t)?[fFeEgGaAn]")
+for run in re.finditer(r"(?:%s\s*)+" % literal, sys.stdin.read()):
+    joined = "".join(part[1:-1] for part in re.findall(literal, run.group(0)))
+    if conversion.search(joined.replace("%%", "")):
+        print(sys.argv[1] + ": " + joined)
+' "$(basename "$src")"
 done > "$TMP/formats"
 if [ -s "$TMP/formats" ]; then
   cat "$TMP/formats" >&2
