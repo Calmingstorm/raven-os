@@ -8,6 +8,8 @@ static uint8_t used[PMM_MAX_FRAMES / 8];
 static uint8_t eligible[PMM_MAX_FRAMES / 8];
 static uint32_t total_frames;
 static uint32_t free_count;
+static uint32_t alloc_cursor;
+static uint8_t oom_reported;
 
 static void bit_set(uint32_t i) { used[i / 8] |= (uint8_t)(1u << (i % 8)); }
 static void bit_clear(uint32_t i) { used[i / 8] &= (uint8_t)~(1u << (i % 8)); }
@@ -37,6 +39,8 @@ void pmm_init(void) {
     memset(eligible, 0, sizeof(eligible));
     total_frames = 0;
     free_count = 0;
+    alloc_cursor = 256;
+    oom_reported = 0;
     bootinfo_visit_memory(visit_memory);
     visit_memory(0, 0x100000, 0);
     uint64_t start = (uintptr_t)&kernel_start, end = (uintptr_t)&kernel_end;
@@ -52,16 +56,20 @@ uint32_t pmm_total_frames(void) { return total_frames; }
 uint32_t pmm_free_frames(void) { return free_count; }
 
 uint32_t pmm_alloc_frame(void) {
-    for (uint32_t i = 256; i < total_frames; i++) {
+    if (!free_count || total_frames <= 256) goto exhausted;
+    for (uint32_t scanned = 0; scanned < total_frames - 256; scanned++) {
+        if (alloc_cursor >= total_frames) alloc_cursor = 256;
+        uint32_t i = alloc_cursor++;
         if (!bit_test(i)) {
             bit_set(i);
-            if (free_count) free_count--;
-            uint32_t addr = i * PAGE_SIZE;
-            wyrd_append("memory", "alloc", "frame", "ok", "4KiB physical page granted");
-            return addr;
+            free_count--;
+            oom_reported = 0;
+            return i * PAGE_SIZE;
         }
     }
-    wyrd_append("memory", "alloc", "frame", "fail", "out of physical frames");
+exhausted:
+    if (!oom_reported) wyrd_append("memory", "alloc", "frame", "fail", "out of physical frames");
+    oom_reported = 1;
     return 0;
 }
 
@@ -71,8 +79,7 @@ void pmm_free_frame(uint32_t frame_addr) {
         wyrd_append("memory", "free", "frame", "deny", "invalid or reserved frame");
         return;
     }
-    if (bit_test(i)) { bit_clear(i); free_count++; }
-    wyrd_append("memory", "free", "frame", "ok", "4KiB physical page returned");
+    if (bit_test(i)) { bit_clear(i); free_count++; oom_reported = 0; }
 }
 
 void pmm_render(void) {

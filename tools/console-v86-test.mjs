@@ -149,7 +149,7 @@ try {
         const free=Number(mem.match(/free_frames:\s+(\d+)/)?.[1]);
         assert.ok(free>0,'PMM nonzero free frames');report.freeFrames=free;
         const heap=(await command('heap',/kernel heap/)).rows.join('\n');
-        assert.match(heap,/size:\s+4096 bytes/);assert.doesNotMatch(heap,/base:\s+0x00000000/);
+        assert.match(heap,/size:\s+16777216 bytes/);assert.doesNotMatch(heap,/base:\s+0x00000000/);
         report.bootScreen=heap;
     });
     await test('PS/2 insertion, movement, Delete and Backspace',async()=>{
@@ -237,6 +237,15 @@ try {
         await codes([0x2A,0x01,0x81,0xAA]);const after=await snapshot();
         assert.deepEqual(after.rows,before.rows);assert.deepEqual(after.cursor,before.cursor);
         assert.deepEqual(after.scanline,before.scanline);await expectInput('draft',1);await ctrlU();
+    });
+    await test('timeline retains distinct shell commands after input buffer reuse',async()=>{
+        await command('clear');
+        await command('mem',/kernel_start:/);
+        await command('heap',/kernel heap/);
+        const screen=await command('timeline',/wyrd timeline/);
+        const rendered=screen.rows.join('\n');
+        for(const value of ['clear','mem','heap','timeline'])
+            assert.match(rendered,new RegExp(`shell \\| exec \\| ${value} \\| ok`));
     });
     report.finalScreen=await snapshot();
     assert.ok(report.finalScreen.cursorCalls>0&&report.finalScreen.scanlineCalls>0,'Real adapter cursor hooks called');

@@ -3,8 +3,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 ./tools/build.sh
+python3 "$ROOT/tests/exception-stubs-test.py"
 ./tools/memory-regression-test.sh
 ./tools/memory-qemu-test.sh
+./tools/wyrd-test.sh
+./tools/heap-test.sh
+bash ./tools/round2-paging-host-test.sh
+bash ./tools/round2-paging-qemu-test.sh
+./tools/round2-qemu-test.sh
 ./tools/keyboard-test.sh
 ./tools/serial-editor-test.sh
 ./tools/vga-test.sh

@@ -20,12 +20,12 @@ Status: in progress, usable in QEMU.
 
 ## Milestone 1: memory and allocator
 
-- [ ] Parse Multiboot memory map
-- [ ] Physical frame allocator
-- [ ] Paging
-- [ ] Kernel heap
+- [x] Parse and validate Multiboot memory map
+- [x] Physical frame allocator (128 MiB cap)
+- [x] Kernel RAM paging and bounded MMIO mapping window
+- [x] Coalescing multi-page virtual kernel heap
 - [ ] Guard pages for kernel stacks
-- [ ] Memory stats command
+- [x] Memory stats commands (`boot`, `mem`, `paging`, `heap`)
 
 ## Milestone 2: tasks and isolation
 
