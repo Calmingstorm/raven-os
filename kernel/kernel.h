@@ -127,6 +127,11 @@ void vga_write_dec(uint32_t n);
 void vga_write_hex(uint32_t n);
 void vga_set_color(uint8_t fg, uint8_t bg);
 void vga_backspace(void);
+void vga_scrollback(int lines);
+void vga_live(void);
+void vga_input_begin(void);
+void vga_input_redraw(const char *text, uint32_t len, uint32_t cursor);
+void vga_input_end(void);
 
 void serial_init(void);
 void serial_putc(char c);
@@ -170,10 +175,25 @@ void timer_init(uint32_t frequency);
 uint32_t timer_ticks(void);
 void timer_tick(void);
 
+typedef enum {
+    KEY_NONE = 0, KEY_CHARACTER, KEY_ENTER, KEY_BACKSPACE, KEY_TAB, KEY_ESCAPE,
+    KEY_LEFT, KEY_RIGHT, KEY_HOME, KEY_END, KEY_DELETE, KEY_UP, KEY_DOWN,
+    KEY_PAGEUP, KEY_PAGEDOWN, KEY_SHIFT, KEY_CTRL, KEY_ALT, KEY_CAPSLOCK
+} KeyCode;
+enum { KEY_MOD_SHIFT = 1, KEY_MOD_CTRL = 2, KEY_MOD_ALT = 4 };
+typedef struct {
+    uint16_t scancode;
+    KeyCode code;
+    char ascii;
+    uint8_t modifiers;
+    uint8_t pressed;
+} KeyEvent;
+
 void keyboard_init(void);
 void keyboard_irq(void);
 void keyboard_on_irq(void);
-int keyboard_pop(char *out);
+void keyboard_feed_scancode(uint8_t scancode);
+int keyboard_pop(KeyEvent *out);
 
 void shell_init(void);
 void shell_tick(void);
@@ -183,6 +203,7 @@ void shell_execute(const char *line);
 void bootinfo_init(uint32_t magic, uint32_t info_addr);
 void bootinfo_render(void);
 uint32_t bootinfo_mem_kib(void);
+void bootinfo_visit_memory(void (*visit)(uint64_t base, uint64_t len, int usable));
 
 void pmm_init(void);
 uint32_t pmm_total_frames(void);

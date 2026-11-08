@@ -3,6 +3,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 ./tools/build.sh
+./tools/memory-regression-test.sh
+./tools/memory-qemu-test.sh
+./tools/keyboard-test.sh
+./tools/serial-editor-test.sh
+./tools/vga-test.sh
+./tools/console-qemu-test.sh
 ./tools/smoke-qemu.sh
 ./tools/smoke-qemu-disk.sh
 ./tools/persistence-qemu-test.sh
