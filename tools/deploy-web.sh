@@ -15,7 +15,7 @@ release="$(date -u +%Y%m%dT%H%M%SZ)-$(git_ rev-parse --short HEAD)"
 git_ diff --quiet HEAD -- || release="$release-dirty"
 
 ssh "$HOST" "mkdir -p '$BASE/releases/$release'"
-rsync -a --delete --chmod=D755,F644 "$DIST/" "$HOST:$BASE/releases/$release/"
+rsync -rlt --delete --chmod=D755,F644 "$DIST/" "$HOST:$BASE/releases/$release/"
 ssh "$HOST" "set -e
   cd '$BASE'
   ln -sfn 'releases/$release' current.new
