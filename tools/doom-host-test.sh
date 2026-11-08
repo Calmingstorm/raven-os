@@ -14,7 +14,6 @@ printf 'XWAD' | cat - <(tail -c +5 "$tmp/freedoom1.wad" | head -c 65536) > "$tmp
 
 # _FORTIFY_SOURCE would route fread to __fread_chk, past the test's file wrappers.
 common=(-m32 -std=gnu17 -O1 -g -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 -DRAVENOS -I"$ROOT/third_party/doomgeneric" -I"$ROOT/kernel")
-[ -z "${RAVEN_RUNTIME_INCLUDE:-}" ] || common+=(-I"$RAVEN_RUNTIME_INCLUDE")
 objs=()
 for src in "$ROOT"/third_party/doomgeneric/*.c; do
   obj="$tmp/$(basename "${src%.c}").o"

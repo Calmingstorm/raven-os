@@ -28,7 +28,21 @@ for src in libc/*.c; do
 done
 as "${ASFLAGS[@]}" libc/setjmp.s -o "$BUILD/libc-setjmp.o"
 objs+=("$BUILD/libc-setjmp.o")
-ld "${LDFLAGS[@]}" "${objs[@]}" -o "$BUILD/ravenos.kernel"
+# The Doom engine (GPL-2.0, third_party/doomgeneric) and its RavenOS port: the libc include domain and its no-FPU
+# flags. Upstream's own code isn't held to -Werror, but an implicit declaration still fails the build.
+DOOMFLAGS=(-m32 -O2 -ffreestanding -fno-pie -fno-stack-protector -fno-builtin -nostdlib -nostdinc
+  -isystem "$(gcc -print-file-name=include)" -Ilibc/include -Ikernel -Ithird_party/doomgeneric
+  -msoft-float -mno-sse -mno-mmx -DRAVENOS -Werror=implicit-function-declaration)
+for src in third_party/doomgeneric/*.c; do
+  obj="$BUILD/doom-$(basename "${src%.c}").o"
+  gcc "${DOOMFLAGS[@]}" -c "$src" -o "$obj"
+  objs+=("$obj")
+done
+# Doom's FixedDiv divides 64 bits by 32. libgcc's __divdi3 object is the one compiler helper in the image; nothing
+# else is taken from libgcc.
+(cd "$BUILD" && ar x "$(gcc -m32 -print-libgcc-file-name)" _divdi3.o)
+objs+=("$BUILD/_divdi3.o")
+ld "${LDFLAGS[@]}" -Map="$BUILD/ravenos.map" "${objs[@]}" -o "$BUILD/ravenos.kernel"
 grub-file --is-x86-multiboot "$BUILD/ravenos.kernel"
 cp "$BUILD/ravenos.kernel" "$ISO/boot/ravenos.kernel"
 cat > "$ISO/boot/grub/grub.cfg" <<'EOF'

@@ -12,6 +12,12 @@ bash ./tools/wad-test.sh
 bash ./tools/runtime-test.sh
 bash ./tools/doom-command-test.sh
 bash ./tools/round3-qemu-test.sh
+./tools/build-wad.sh
+./tools/doom-input-test.sh
+bash ./tools/doom-audit.sh
+./tools/doom-host-test.sh
+./tools/doomgeneric-diff.sh >/dev/null
+python3 ./tools/doom-qemu-test.py
 python3 "$ROOT/tests/exception-stubs-test.py"
 ./tools/memory-regression-test.sh
 ./tools/memory-qemu-test.sh
