@@ -6,7 +6,8 @@
  * Delivery is bounded: at most RAVEN_INPUT_PER_FRAME events between raven_input_frame() calls, because the
  * engine's event ring holds 64 entries and doesn't check for overflow. If the transition queue itself
  * overflows, ordering for that burst is given up and the engine is brought back to the keys actually held,
- * so movement and fire can never stay stuck down.
+ * so movement and fire can never stay stuck down. Transitions the keyboard driver itself drops are recovered the
+ * same way, from its record of the keys physically down (raven_input_resync).
  */
 #ifndef RAVEN_DOOM_INPUT_H
 #define RAVEN_DOOM_INPUT_H
@@ -24,6 +25,9 @@ void raven_input_feed(uint16_t scancode, int pressed, int repeat);
 int raven_input_next(int *pressed, unsigned char *doomkey);
 /* A new frame: the delivery quota starts again. */
 void raven_input_frame(void);
+/* After the keyboard driver lost transitions: bring the mapper to the keys physically down (bit slot % 8 of
+ * held[slot / 8], slot = 0x80 for an extended key | its scancode). Releases are queued before presses. */
+void raven_input_resync(const uint8_t held[32]);
 /* The Doom key for a scancode, or 0 when the key has no use in Doom. */
 unsigned char raven_input_doom_key(uint16_t scancode);
 

@@ -165,6 +165,10 @@ typedef struct { uint32_t at; Step step; } Check;
 static const Check *steps;
 static unsigned step_count, next_step;
 
+/* The scripted keyboard never drops a transition. */
+uint32_t raven_doom_key_losses(void) { return 0; }
+uint32_t raven_doom_key_held(uint8_t held[32]) { memset(held, 0, 32); return 0; }
+
 int raven_doom_key_next(RavenDoomKey *out) {
     while (next_step < step_count && steps[next_step].at <= now) steps[next_step++].step();
     if (next_key >= key_count || keys[next_key].at > now) return 0;

@@ -12,12 +12,14 @@
 
 static volatile uint32_t *framebuffer;
 static uint32_t framebuffer_stride;
+static uint32_t known_losses;
 
 // Fail before anything loads when graphics can't work. The switch itself waits for the first frame, so Doom's
 // startup log stays readable in the text console while the WAD loads.
 void DG_Init(void) {
     const char *why;
     raven_input_reset();
+    known_losses = raven_doom_key_losses();
     framebuffer = 0;
     if (raven_doom_video_check(&why) != 0) raven_doom_abort(why);
 }
@@ -48,6 +50,13 @@ uint32_t DG_GetTicksMs(void) {
 int DG_GetKey(int *pressed, unsigned char *key) {
     RavenDoomKey physical;
     while (raven_doom_key_next(&physical)) raven_input_feed(physical.scancode, physical.pressed, physical.repeat);
+    // The driver drops transitions while its queue is full, a long stall reading the disk for instance. Then bring
+    // the mapper back to the keys physically down, so a lost release can't leave movement or fire held.
+    if (raven_doom_key_losses() != known_losses) {
+        uint8_t held[32];
+        known_losses = raven_doom_key_held(held);
+        raven_input_resync(held);
+    }
     return raven_input_next(pressed, key);
 }
 

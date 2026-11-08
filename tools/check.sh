@@ -14,6 +14,7 @@ bash ./tools/doom-command-test.sh
 bash ./tools/round3-qemu-test.sh
 ./tools/build-wad.sh
 ./tools/doom-input-test.sh
+./tools/doom-key-loss-test.sh
 bash ./tools/doom-audit.sh
 ./tools/divdi3-test.sh
 ./tools/doom-host-test.sh

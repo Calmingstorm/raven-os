@@ -39,6 +39,29 @@ static const char shifted[128] = {
 
 static void compiler_barrier(void) { __asm__ volatile ("" ::: "memory"); }
 
+/* Private instruction seam, as in raven_clock.c: the host test replaces the interrupt-flag instructions. */
+#ifndef KEYBOARD_TEST
+static uint32_t keyboard_irq_save(void) {
+    uint32_t flags;
+    __asm__ volatile ("pushfl; popl %0; cli" : "=r"(flags) :: "memory");
+    return flags;
+}
+static void keyboard_irq_restore(uint32_t flags) {
+    if (flags & (1u << 9)) __asm__ volatile ("sti" ::: "memory");
+}
+#else
+uint32_t keyboard_irq_save(void);
+void keyboard_irq_restore(uint32_t flags);
+#endif
+
+uint32_t keyboard_held_snapshot(uint8_t out[32]) {
+    uint32_t flags = keyboard_irq_save();
+    for (unsigned i = 0; i < sizeof(held); i++) out[i] = held[i];
+    uint32_t dropped = dropped_events;
+    keyboard_irq_restore(flags);
+    return dropped;
+}
+
 static void push_event(KeyEvent event) {
     uint32_t h = head, next = (h + 1) % KEYBUF_CAP;
     if (next == tail) {

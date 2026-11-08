@@ -119,6 +119,22 @@ int main(void) {
     brk(0x1d); brk(0xe048);
     expect(0, KEY_FIRE); expect(0, KEY_UPARROW); none();
 
+    /* Recovery from transitions the keyboard driver dropped: the mapper takes the physical record, releases first.
+     * The engine believes fire is down; physically fire is up and right is down. */
+    raven_input_reset();
+    make(0x1d);
+    expect(1, KEY_FIRE); none();
+    {
+        uint8_t held[32] = {0};
+        held[(0x80 | 0x4d) / 8] |= (uint8_t)(1u << ((0x80 | 0x4d) % 8));   /* extended Right */
+        raven_input_resync(held);
+        expect(0, KEY_FIRE); expect(1, KEY_RIGHTARROW); none();
+        raven_input_resync(held);                                          /* agreeing already: nothing */
+        none();
+        brk(0xe04d);                                                       /* the real release still counts */
+        expect(0, KEY_RIGHTARROW); none();
+    }
+
     puts("doom input tests passed");
     return 0;
 }

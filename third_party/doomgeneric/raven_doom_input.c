@@ -122,3 +122,13 @@ int raven_input_next(int *pressed, unsigned char *doomkey) {
 void raven_input_frame(void) {
     delivered = 0;
 }
+
+void raven_input_resync(const uint8_t held[32]) {
+    for (int pass = 0; pass < 2; pass++) {
+        for (unsigned slot = 1; slot < 256; slot++) {
+            unsigned char physical = (held[slot / 8] >> (slot % 8)) & 1;
+            if (physical == scancode_down[slot] || physical != pass) continue;
+            raven_input_feed(slot & 0x80 ? (uint16_t)(0xe000 | (slot & 0x7f)) : (uint16_t)slot, physical, 0);
+        }
+    }
+}

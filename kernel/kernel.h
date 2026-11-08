@@ -241,6 +241,9 @@ void keyboard_on_irq(void);
 void keyboard_feed_scancode(uint8_t scancode);
 int keyboard_pop(KeyEvent *out);
 uint32_t keyboard_dropped_events(void);
+/* The keys physically down as the driver records them (dropped events included): bit slot % 8 of out[slot / 8],
+ * slot = 0x80 for an extended key | its scancode. Returns the dropped-event count, read together with it. */
+uint32_t keyboard_held_snapshot(uint8_t out[32]);
 
 void shell_init(void);
 void shell_tick(void);

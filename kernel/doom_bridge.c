@@ -18,6 +18,14 @@ void raven_doom_video_end(void) {
     gfx_end();
 }
 
+uint32_t raven_doom_key_losses(void) {
+    return keyboard_dropped_events();
+}
+
+uint32_t raven_doom_key_held(uint8_t held[32]) {
+    return keyboard_held_snapshot(held);
+}
+
 int raven_doom_key_next(RavenDoomKey *out) {
     KeyEvent key;
     if (!keyboard_pop(&key)) return 0;

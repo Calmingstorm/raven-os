@@ -9,6 +9,12 @@ void wyrd_append(const char *a, const char *b, const char *c, const char *d, con
 }
 
 #define CHECK(x) do { if (!(x)) { fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #x); exit(1); } } while (0)
+/* The driver's interrupt-flag seam: the snapshot must read with interrupts off, and turn them back on. */
+static int irqs_off, snapshots;
+uint32_t keyboard_irq_save(void) { CHECK(!irqs_off); irqs_off = 1; return 0x200u; }
+void keyboard_irq_restore(uint32_t flags) { CHECK(irqs_off && flags == 0x200u); irqs_off = 0; snapshots++; }
+static int held_bit(const uint8_t held[32], unsigned slot) { return (held[slot / 8] >> (slot % 8)) & 1; }
+
 static void feed(uint8_t b) { keyboard_feed_scancode(b); }
 static void ext(uint8_t b) { feed(0xe0); feed(b); }
 static void expect(uint16_t sc, KeyCode code, char ascii, uint8_t mods, uint8_t down) {
@@ -145,6 +151,22 @@ int main(void) {
         empty();
         keyboard_init();
         feed(0x1c); CHECK(keyboard_pop(&e) && !e.repeat); /* init forgets held keys */
+    }
+    /* The held snapshot is the driver's physical record, dropped events included, with their count. */
+    keyboard_init();
+    {
+        uint8_t held[32];
+        unsigned set = 0;
+        feed(0x1d); ext(0x48);
+        CHECK(keyboard_held_snapshot(held) == 0 && snapshots == 1 && !irqs_off);
+        for (i = 0; i < 256; ++i) set += held_bit(held, i);
+        CHECK(set == 2 && held_bit(held, 0x1d) && held_bit(held, 0x80 | 0x48));
+        for (i = 0; i < KEYBUF_CAP; ++i) ext(0x48);   /* fill the queue with Up repeats */
+        feed(0x9d);                                    /* Ctrl's release is dropped... */
+        CHECK(keyboard_dropped_events() >= 1);
+        CHECK(keyboard_held_snapshot(held) == keyboard_dropped_events());
+        CHECK(!held_bit(held, 0x1d) && held_bit(held, 0x80 | 0x48));   /* ...but the record knows it's up */
+        CHECK(!irqs_off);
     }
     puts("keyboard tests passed");
     return 0;

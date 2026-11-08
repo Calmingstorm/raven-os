@@ -43,6 +43,8 @@ puts
 raven_clock_ms
 raven_doom_abort
 raven_doom_exit
+raven_doom_key_held
+raven_doom_key_losses
 raven_doom_key_next
 raven_doom_video_begin
 raven_doom_video_check

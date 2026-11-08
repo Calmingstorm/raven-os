@@ -19,5 +19,10 @@ int raven_doom_video_begin(volatile uint32_t **framebuffer, uint32_t *stride_pix
 void raven_doom_video_end(void);
 /* The next physical key transition from the keyboard driver: 1 with *out filled, or 0 when none is queued. */
 int raven_doom_key_next(RavenDoomKey *out);
+/* How many transitions the keyboard driver has dropped so far, because its queue was full. */
+uint32_t raven_doom_key_losses(void);
+/* The keys physically down: bit slot % 8 of held[slot / 8], slot = 0x80 for an extended key | its scancode.
+ * Returns the loss count read together with it. */
+uint32_t raven_doom_key_held(uint8_t held[32]);
 
 #endif
