@@ -92,8 +92,10 @@ transport size; file reads still expose only the logical WAD.
 
 With interrupts enabled, every ATA wait phase uses a wrap-safe 3,100-PIT-tick
 deadline (about 31 seconds at the existing 100 Hz rate), not a CPU-speed-dependent
-poll budget. After 64 short polls it masks interrupts, rechecks status/deadline,
-then uses atomic `sti; hlt` to yield until an interrupt. PIT wakes suffice even
+poll budget. It busy-polls for two elapsed PIT ticks (10-20 ms), allowing ordinary
+asynchronous PIO reads to finish without a PIT-sized sleep on every sector.
+After that it masks interrupts, rechecks status/deadline, then uses atomic
+`sti; hlt` to yield until an interrupt. PIT wakes suffice even
 with IDE IRQs masked. Calls made with IF clear retain a finite poll budget and
 never enable interrupts or halt; this supports pre-PIT boot probing. Both paths
 retain immediate 0x00/0xFF absent detection, check BSY before error/DRQ, reject
@@ -142,6 +144,9 @@ missing/corrupt/short disks; and small-master refusal to persist. QEMU checks
 the complete master image's host SHA-256 before/after in addition to the
 guest's full-device checksum. Native fault injection covers bounded ATA waits,
 I/O/flush failures, malformed directories, cache invalidation and partial reads.
+ATA tests advance PIT IRQs during enabled polling as well as HLT, assert exact
+sleep counts and wrap-safe deadlines, and require a device taking 4,096 busy
+polls within zero or one tick to complete without any HLT (also across wrap).
 QEMU `ide-hd` rejects `readonly=on` with `Block node is read-only`; the QEMU
 fixture therefore uses `snapshot=on` for the slave and verifies its raw backing
 image's SHA-256 too. This protects the host image through a disposable overlay,

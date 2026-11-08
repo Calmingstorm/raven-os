@@ -25,7 +25,9 @@
 /* PIT runs at 100 Hz. Allow 31 seconds per phase, including a tick of
  * quantization slack beyond the 30-second network-latency requirement. */
 #define ATA_WAIT_TICKS 3100u
-#define ATA_SHORT_SPINS 64u
+/* Complete ordinary asynchronous PIO reads without a PIT-sized sleep per
+ * sector. Only yield once a wait spans two ticks (10-20 ms at 100 Hz). */
+#define ATA_SPIN_TICKS 2u
 
 /* Private instruction seam, as in raven_clock.c; production uses real i386
  * instructions. ATA is main-loop only: IRQ handlers never use this channel. */
@@ -71,7 +73,8 @@ static int wait_status(unsigned drive, int phase) {
     const uint32_t start = interrupts ? timer_ticks() : 0;
     uint32_t spin = 0;
     for (;;) {
-        const int sleeping = interrupts && spin >= ATA_SHORT_SPINS;
+        const int sleeping = interrupts &&
+            (uint32_t)(timer_ticks() - start) >= ATA_SPIN_TICKS;
         /* Check status and deadline with IF clear before STI/HLT. A PIT IRQ
          * arriving after the check stays pending until HLT, not lost between
          * the check and sleep. IDE IRQs are masked; PIT also wakes us when a
@@ -104,7 +107,6 @@ static int wait_status(unsigned drive, int phase) {
             return result > 0 ? 1 : fail(drive, -result);
         }
         if (sleeping) ata_sti_hlt();
-        else if (interrupts) ++spin;
     }
 }
 
