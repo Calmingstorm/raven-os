@@ -324,6 +324,42 @@ try {
     + 'back to the shell (exit 0) with the startup log kept');
   await doom.page.close();
 
+  // The Doom disk's details never arrive: the machine boots anyway, without Doom, and doom says so.
+  const unanswered = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await unanswered.route('**/build.json', () => {});
+  const unansweredStarted = Date.now();
+  await unanswered.goto(url);
+  await unanswered.waitForFunction(() => document.getElementById('status').dataset.state === 'running', null, { timeout: 30000 })
+    .catch(async () => assert.fail(`no boot while build.json is unanswered; overlay: ${await unanswered.textContent('#overlay')}`));
+  const unansweredSeconds = (Date.now() - unansweredStarted) / 1000;
+  await unanswered.focus('#screen');
+  await unanswered.keyboard.type('doom\n');
+  await waitForScreen(unanswered, 'no Doom data disk is attached');
+  results.push(`unanswered build.json: booted in ${unansweredSeconds.toFixed(1)} s without the Doom disk, and doom says so`);
+  await unanswered.close();
+
+  // A CPU fault, sent to the page as the kernel's serial port sends it (through v86's CPU-side bus, which the page's
+  // listeners hear): the banner and the stopped status hold through focus changes, and the machine bar's Restart
+  // gives a fresh machine.
+  const faulted = await open(1280);
+  await faulted.page.evaluate(text => {
+    for (const c of text) window.emulator.emulator_bus.send('serial0-output-byte', c.charCodeAt(0));
+  }, '\r\nFATAL exception=0x0000000E EIP=0x00101234 error=0x00000002 CR2=0x00000000 cause=not-present write supervisor\r\ninterrupts disabled; halted\r\n');
+  await faulted.page.waitForFunction(() => document.getElementById('overlay').dataset.state === 'error'
+    && !document.getElementById('overlay').hidden, null, { timeout: 10000 })
+    .catch(() => assert.fail('the CPU fault never showed its banner'));
+  assert.match(await faulted.page.textContent('#overlay-text'), /CPU fault \(exception=0x0000000E EIP=0x00101234/);
+  await faulted.page.focus('#type-input');
+  await faulted.page.focus('#screen');
+  assert.equal(await faulted.page.evaluate(() => document.getElementById('status').dataset.state), 'stopped',
+    'focus changes keep the stopped status after a fault');
+  await Promise.all([faulted.page.waitForEvent('load'), faulted.page.click('#restart')]);
+  await faulted.page.waitForFunction(() => document.getElementById('status').dataset.state === 'running', null, { timeout: 30000 })
+    .catch(async () => assert.fail(`Restart after a fault didn't bring up a fresh machine; overlay: ${await faulted.page.textContent('#overlay')}`));
+  assert.equal(await faulted.page.isVisible('#overlay'), false, 'the fresh machine has no fault banner');
+  results.push('cpu fault: the banner and stopped status hold through focus changes, and Restart gives a fresh machine');
+  await faulted.page.close();
+
   // Phone: the text view is open from the start and follows what the machine prints. Run on a CPU slowed
   // fourfold like a cheap phone: a slow machine once lost the key that should end gfx, because it arrived while
   // the pattern was still drawing and was discarded as stale.

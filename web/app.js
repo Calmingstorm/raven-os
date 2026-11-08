@@ -17,19 +17,57 @@ const BOOT_TIMEOUT_MS = 30000;
 // than RavenFS needs, so RavenFS keeps its RAM backend, as it always has here: nothing persists across reloads.
 const SCRATCH_DISK_BYTES = 64 * 512;
 
+// How long the Doom disk's details may take before the machine boots without it.
+const DOOM_MANIFEST_TIMEOUT_MS = 8000;
+
+const megabytes = bytes => (bytes / 1048576).toFixed(1);
+
+function setStatus(text, state) {
+  status.textContent = text;
+  status.dataset.state = state;
+}
+
+// Boot: the overlay stays up until the shell prompt is actually on screen, not merely until the
+// emulator starts. A failed download or a missing prompt replaces it with the reason and a Retry.
+// The watchdog starts before anything is awaited, so nothing below can leave the page waiting forever.
+let emulator = null;
+let booted = false;
+let failed = false;
+let halted = false;
+const bootTimer = setTimeout(
+  () => fail(`RavenOS didn't reach its prompt within ${BOOT_TIMEOUT_MS / 1000} seconds.`), BOOT_TIMEOUT_MS);
+
+function fail(message) {
+  if (booted || failed) return;
+  failed = true;
+  clearTimeout(bootTimer);
+  if (emulator) emulator.stop();
+  overlay.hidden = false;
+  overlay.dataset.state = 'error';
+  overlayText.textContent = message;
+  retry.hidden = false;
+  setStatus(message, 'stopped');
+}
+retry.addEventListener('click', () => location.reload());
+
 // The Doom data disk, named by its hash in build.json. Nothing of it downloads until Doom reads it, and then only
-// the fixed-size chunks it reads; the image is a whole number of chunks, which v86's chunked reads need.
+// the fixed-size chunks it reads; the image is a whole number of chunks, which v86's chunked reads need. If its
+// details don't arrive in time the machine boots without it, and doom says there's no data disk.
 async function doomDisk() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), DOOM_MANIFEST_TIMEOUT_MS);
   try {
-    const response = await fetch('build.json', { cache: 'no-cache' });
+    const response = await fetch('build.json', { cache: 'no-cache', signal: controller.signal });
     const doom = response.ok ? (await response.json()).doom : null;
     return doom ? { url: doom.image, size: doom.image_bytes, async: true, fixed_chunk_size: doom.chunk_bytes } : undefined;
   } catch {
     return undefined;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-const emulator = new V86({
+emulator = new V86({
   wasm_path: 'v86.wasm',
   memory_size: 128 * 1024 * 1024,
   vga_memory_size: 8 * 1024 * 1024,
@@ -47,33 +85,6 @@ const emulator = new V86({
 });
 window.emulator = emulator;
 
-const megabytes = bytes => (bytes / 1048576).toFixed(1);
-
-function setStatus(text, state) {
-  status.textContent = text;
-  status.dataset.state = state;
-}
-
-// Boot: the overlay stays up until the shell prompt is actually on screen, not merely until the
-// emulator starts. A failed download or a missing prompt replaces it with the reason and a Retry.
-let booted = false;
-let failed = false;
-const bootTimer = setTimeout(
-  () => fail(`RavenOS didn't reach its prompt within ${BOOT_TIMEOUT_MS / 1000} seconds.`), BOOT_TIMEOUT_MS);
-
-function fail(message) {
-  if (booted || failed) return;
-  failed = true;
-  clearTimeout(bootTimer);
-  emulator.stop();
-  overlay.hidden = false;
-  overlay.dataset.state = 'error';
-  overlayText.textContent = message;
-  retry.hidden = false;
-  setStatus(message, 'stopped');
-}
-retry.addEventListener('click', () => location.reload());
-
 // A CPU fault halts RavenOS with two lines on its serial port. The screen just stops (in graphics mode, on the
 // last frame), so say what happened.
 let serialLine = '';
@@ -85,13 +96,15 @@ emulator.add_listener('serial0-output-byte', byte => {
   }
   if (!serialLine) return;
   if (serialLine === 'interrupts disabled; halted' && previousSerialLine.startsWith('FATAL exception=')) {
-    halted(previousSerialLine);
+    showFault(previousSerialLine);
   }
   previousSerialLine = serialLine;
   serialLine = '';
 });
 
-function halted(fault) {
+function showFault(fault) {
+  halted = true;
+  clearTimeout(bootTimer);
   overlay.hidden = false;
   overlay.dataset.state = 'error';
   overlayText.textContent = `RavenOS stopped on a CPU fault (${fault.slice(6)}). Restart to start it again.`;
@@ -113,7 +126,7 @@ emulator.add_listener('emulator-started', () => {
 });
 
 function checkBooted() {
-  if (booted || failed || !screenText().includes(PROMPT)) return;
+  if (booted || failed || halted || !screenText().includes(PROMPT)) return;
   booted = true;
   clearTimeout(bootTimer);
   overlay.hidden = true;
@@ -221,7 +234,7 @@ textToggle.addEventListener('click', () => showReadout(readout.hidden));
 // Keys go to RavenOS only while the screen has focus, so Tab and other keys work normally on the
 // rest of the page. Inside the screen Tab belongs to the guest; Shift+Escape hands focus back.
 function updateStatus() {
-  if (!booted || failed) return;
+  if (!booted || failed || halted) return;
   setStatus(document.activeElement === screen
     ? 'Running. Keys go to RavenOS; Shift+Esc gives them back.'
     : 'Running. Click the screen to type.', 'running');
@@ -281,7 +294,13 @@ document.getElementById('type-form').addEventListener('submit', event => {
   input.value = '';
 });
 
+// After a CPU fault, Restart starts a fresh page, as the overlay's own Restart does: the page's boot state stays
+// the fault's otherwise.
 document.getElementById('restart').addEventListener('click', () => {
+  if (halted) {
+    location.reload();
+    return;
+  }
   emulator.restart();
   focusScreen();
 });
