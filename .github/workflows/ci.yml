@@ -9,6 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -40,9 +43,19 @@ jobs:
           node tools/check-web.mjs --screenshots /tmp/check-web
       - name: Integrity checker regressions (damaged gzip copies)
         run: node tools/verify-web-test.mjs
+      - name: Memory, heap, timeline and fatal-fault guests in v86
+        run: ./tools/round2-v86-test.sh --report /tmp/check-web/round2-v86.json
+      - name: Paging boundaries, MMIO exhaustion and rollback guests in v86
+        run: node tools/round2-paging-v86-test.mjs --assets "$PWD/web/dist" --playwright "$PWD/web/node_modules/playwright-core" --keep
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: check-web-screenshots
           path: /tmp/check-web
+      - name: Upload paging guest report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: round2-paging-v86
+          path: /tmp/raven-round2-paging-v86-*/report.json

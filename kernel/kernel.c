@@ -1,6 +1,7 @@
 #include "kernel.h"
 
 void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info_addr) {
+    __asm__ volatile ("cli" ::: "memory");
     vga_init();
     vga_set_color(COLOR_LIGHT_CYAN, COLOR_BLACK);
     vga_write("RavenOS " RAVEN_VERSION " booting...\n");
@@ -12,6 +13,8 @@ void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info_addr) {
     wyrd_append("kernel", "init", "wyrd-ring", "ok", "256 events reserved");
     serial_init();
     gdt_init();
+    idt_init();
+    wyrd_append("cpu", "init", "idt+pic", "ok", "exception gates installed before paging");
 
     bootinfo_init(multiboot_magic, multiboot_info_addr);
 
@@ -44,8 +47,6 @@ void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info_addr) {
     user_init();
     exec_init();
 
-    idt_init();
-    wyrd_append("cpu", "init", "idt+pic", "ok", "interrupt gates installed");
     timer_init(100);
     keyboard_init();
 

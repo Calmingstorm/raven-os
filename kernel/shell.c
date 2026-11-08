@@ -72,7 +72,7 @@ static void write_help(const char *topic) {
                   "  mem     Physical frame allocator status\n"
                   "  alloc   Allocate one frame (not automatically freed)\n"
                   "  paging  Paging status (only the first 4 MiB mapped)\n"
-                  "  heap    Small prototype heap status\n");
+                  "  heap    Multi-page kernel heap status\n");
     } else if (!strcmp(topic, "files")) {
         vga_write("RAM files (changes are not persistent until saved or synced)\n"
                   "  fs                     Filesystem status\n"

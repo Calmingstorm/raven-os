@@ -45,7 +45,7 @@ ISR_ERR   17
 ISR_NOERR 18
 ISR_NOERR 19
 ISR_NOERR 20
-ISR_NOERR 21
+ISR_ERR   21 /* #CP on CPUs supporting control protection */
 ISR_NOERR 22
 ISR_NOERR 23
 ISR_NOERR 24
@@ -53,8 +53,8 @@ ISR_NOERR 25
 ISR_NOERR 26
 ISR_NOERR 27
 ISR_NOERR 28
-ISR_NOERR 29
-ISR_NOERR 30
+ISR_ERR   29 /* #VC on CPUs supporting virtualization communication */
+ISR_ERR   30 /* #SX on CPUs supporting security exceptions */
 ISR_NOERR 31
 
 IRQ 0 32

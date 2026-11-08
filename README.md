@@ -19,13 +19,13 @@ Implemented:
 - PIT timer on IRQ0
 - PS/2 keyboard input on IRQ1
 - Interactive command palette
-- Wyrd event ring buffer
+- Wyrd event ring buffer with event-owned strings and explicit truncation markers
 - Capability table scaffold
 - Kernel object namespace scaffold
 - Multiboot memory-map inspection
 - Physical frame allocator
-- First-stage identity paging
-- Tiny kernel heap
+- Validated RAM identity paging through 128 MiB, with a separate uncached MMIO window
+- Coalescing 16 MiB virtual kernel heap with malloc/free/realloc/calloc
 - RAM filesystem plus procfs-style diagnostic pseudo-files
 - Volatile sector storage scaffold
 - Cooperative task table scaffold
@@ -78,7 +78,7 @@ alloc tasks spawn kill stats clear about panic-test
 Dependencies on a Debian/Ubuntu-like host:
 
 ```bash
-sudo apt install build-essential gcc-multilib binutils grub-pc-bin xorriso mtools qemu-system-x86
+sudo apt install build-essential gcc-multilib binutils grub-pc-bin xorriso mtools qemu-system-x86 python3 nodejs npm
 ```
 
 Build the ISO:
@@ -105,6 +105,9 @@ Artifacts:
 build/ravenos.kernel
 build/ravenos.iso
 ```
+
+Memory/MMIO/heap contracts, low-memory behavior, timeline bounds and round-2
+regression tooling are documented in [docs/round2-memory.md](docs/round2-memory.md).
 
 ## In the browser
 

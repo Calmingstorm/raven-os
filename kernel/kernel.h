@@ -8,6 +8,12 @@
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
 #define WYRD_CAP 256
+#define WYRD_ACTOR_CAP 64
+#define WYRD_VERB_CAP 32
+/* Includes the NUL: the shell's entire supported 159-byte command fits. */
+#define WYRD_OBJECT_CAP 160
+#define WYRD_RESULT_CAP 32
+#define WYRD_NOTE_CAP 192
 /* 1023 usable events: a 159-character paste plus Enter fits even when each
  * character needs its own Shift make/break pair (638 events), with margin. */
 #define KEYBUF_CAP 1024
@@ -49,13 +55,19 @@ typedef enum {
     COLOR_WHITE = 15,
 } VgaColor;
 
+enum {
+    WYRD_TRUNC_ACTOR = 1u << 0, WYRD_TRUNC_VERB = 1u << 1,
+    WYRD_TRUNC_OBJECT = 1u << 2, WYRD_TRUNC_RESULT = 1u << 3,
+    WYRD_TRUNC_NOTE = 1u << 4
+};
 typedef struct {
     uint32_t tick;
-    const char *actor;
-    const char *verb;
-    const char *object;
-    const char *result;
-    const char *note;
+    char actor[WYRD_ACTOR_CAP];
+    char verb[WYRD_VERB_CAP];
+    char object[WYRD_OBJECT_CAP];
+    char result[WYRD_RESULT_CAP];
+    char note[WYRD_NOTE_CAP];
+    uint8_t truncated;
 } WyrdEvent;
 
 typedef struct {
@@ -159,6 +171,8 @@ void wyrd_init(void);
 void wyrd_append(const char *actor, const char *verb, const char *object, const char *result, const char *note);
 void wyrd_render(uint32_t limit);
 uint32_t wyrd_count(void);
+/* Main-loop API. Copy out a snapshot by oldest-retained index, not a ring pointer. */
+int wyrd_get(uint32_t oldest_index, WyrdEvent *out);
 
 void caps_init(void);
 void cap_grant(const char *name, const char *holder, uint32_t rights);
@@ -216,7 +230,12 @@ void pmm_free_frame(uint32_t frame_addr);
 void pmm_render(void);
 
 void heap_init(void);
+/* Main-loop only. Zero-size allocation returns NULL; free(NULL) is harmless.
+ * realloc(p,0) frees; realloc failure preserves p. Payloads are 16-byte aligned. */
 void *kmalloc(size_t size);
+void kfree(void *ptr);
+void *krealloc(void *ptr, size_t size);
+void *kcalloc(size_t count, size_t size);
 void kfree_all(void);
 void heap_render(void);
 
@@ -237,6 +256,16 @@ int task_set_state(uint32_t id, const char *state);
 
 void paging_init(void);
 void paging_render(void);
+/* Main-loop only; byte-granular device range, outward 4KiB rounding, offset
+ * preserved. Supervisor RW PCD/PWT, no PAT changes. RAM/direct-map overlaps,
+ * zero/overflow/resource failure return NULL transactionally. Persistent until
+ * reboot; fully covered ranges reuse mappings, other overlaps fail. The caller
+ * validates the PCI BAR/aperture and must use only the returned virtual address.
+ * See docs/round2-memory.md for the full contract and resource limits. */
+volatile void *paging_map_mmio(uint32_t phys_addr, size_t size);
+/* One transactional contiguous virtual arena backed by independent PMM frames.
+ * Page-aligned nonzero byte count <= 16MiB. Failed attempts may be retried. */
+void *paging_alloc_heap(size_t bytes);
 
 void ramfs_init(void);
 void ramfs_render(void);

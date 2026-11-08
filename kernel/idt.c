@@ -97,16 +97,46 @@ void idt_init(void) {
     outb(PIC2_DATA, 0xFF);
 }
 
+/* Fatal path bypasses serial_ready, timeline, heap and all video state.
+ * Bounded polling still permits a halt with no working UART. */
+static void fault_putc(char c) {
+    for (uint32_t spin = 0; spin < 100000; spin++)
+        if (inb(0x3FD) & 0x20) break;
+    outb(0x3F8, (uint8_t)c);
+}
+
+static void fault_write(const char *s) {
+    while (*s) fault_putc(*s++);
+}
+
+static void fault_hex(uint32_t value) {
+    fault_write("0x");
+    for (int shift = 28; shift >= 0; shift -= 4)
+        fault_putc("0123456789ABCDEF"[(value >> shift) & 15]);
+}
+
 void isr_handler(Registers *regs) {
     if (regs->int_no == 128) {
         regs->eax = syscall_from_registers(regs);
         return;
     }
-    wyrd_append("cpu", "exception", "interrupt", "fault", "processor trap");
-    vga_set_color(COLOR_LIGHT_RED, COLOR_BLACK);
-    vga_write("\nCPU exception "); vga_write_dec(regs->int_no);
-    vga_write(" err="); vga_write_hex(regs->err_code);
-    vga_write(" eip="); vga_write_hex(regs->eip); vga_putc('\n');
+    __asm__ volatile("cli" ::: "memory");
+    uint32_t cr2;
+    __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
+    fault_write("\r\nFATAL exception="); fault_hex(regs->int_no);
+    fault_write(" EIP="); fault_hex(regs->eip);
+    fault_write(" error="); fault_hex(regs->err_code);
+    if (regs->int_no == 14) {
+        fault_write(" CR2="); fault_hex(cr2);
+        fault_write(" cause=");
+        fault_write((regs->err_code & 1) ? "protection" : "not-present");
+        fault_write((regs->err_code & 2) ? " write" : " read");
+        fault_write((regs->err_code & 4) ? " user" : " supervisor");
+        if (regs->err_code & 8) fault_write(" reserved-bit");
+        if (regs->err_code & 16) fault_write(" instruction-fetch");
+    }
+    fault_write("\r\ninterrupts disabled; halted\r\n");
+    for (;;) __asm__ volatile("cli; hlt" ::: "memory");
 }
 
 void irq_handler(Registers *regs) {
