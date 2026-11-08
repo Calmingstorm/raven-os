@@ -4,9 +4,17 @@ const screen = document.getElementById('screen');
 const canvas = screen.querySelector('canvas');
 const status = document.getElementById('status');
 const overlay = document.getElementById('overlay');
+const overlayText = document.getElementById('overlay-text');
+const retry = document.getElementById('retry');
 const input = document.getElementById('type-input');
 const readout = document.getElementById('readout');
 const textToggle = document.getElementById('text-toggle');
+
+const PROMPT = 'raven> ';
+// Page load to the shell prompt. The prompt normally appears in under a second once the files are in.
+const BOOT_TIMEOUT_MS = 30000;
+// The shell's input line holds 159 characters; Backspace on an empty line does nothing.
+const MAX_INPUT = 159;
 
 const emulator = new V86({
   wasm_path: 'v86.wasm',
@@ -30,17 +38,47 @@ function setStatus(text, state) {
   status.dataset.state = state;
 }
 
+// Boot: the overlay stays up until the shell prompt is actually on screen, not merely until the
+// emulator starts. A failed download or a missing prompt replaces it with the reason and a Retry.
+let booted = false;
+let failed = false;
+const bootTimer = setTimeout(
+  () => fail(`RavenOS didn't reach its prompt within ${BOOT_TIMEOUT_MS / 1000} seconds.`), BOOT_TIMEOUT_MS);
+
+function fail(message) {
+  if (booted || failed) return;
+  failed = true;
+  clearTimeout(bootTimer);
+  emulator.stop();
+  overlay.hidden = false;
+  overlay.dataset.state = 'error';
+  overlayText.textContent = message;
+  retry.hidden = false;
+  setStatus(message, 'stopped');
+}
+retry.addEventListener('click', () => location.reload());
+
 emulator.add_listener('download-progress', event => {
-  if (event.lengthComputable && event.total) {
+  if (!failed && event.lengthComputable && event.total) {
     setStatus(`Loading ${megabytes(event.loaded)} of ${megabytes(event.total)} MB`, 'loading');
   }
 });
-emulator.add_listener('emulator-started', () => {
-  overlay.hidden = true;
-  setStatus('Running. Click the screen and type.', 'running');
-  requestAnimationFrame(updateReadout);
+emulator.add_listener('download-error', event => {
+  fail(`Couldn't download ${event.file_name || 'a file the machine needs'}. Check your connection, then retry.`);
 });
-emulator.add_listener('emulator-stopped', () => setStatus('Stopped', 'stopped'));
+emulator.add_listener('emulator-started', () => {
+  if (!failed) setStatus('Booting', 'loading');
+});
+
+function checkBooted() {
+  if (booted || failed || !screenText().includes(PROMPT.trim())) return;
+  booted = true;
+  clearTimeout(bootTimer);
+  overlay.hidden = true;
+  updateStatus();
+  // Typing should just work on arrival, unless the visitor has already focused something else.
+  if (document.activeElement === document.body) focusScreen();
+}
 
 // Scale the screen by whole device pixels so the VGA font stays sharp. Below 1:1 (phones) it
 // scales smoothly instead, and the text view below the screen does the reading.
@@ -81,19 +119,22 @@ function screenText() {
   return lines.join('\n');
 }
 
-let readoutQueued = false;
 function updateReadout() {
-  readoutQueued = false;
   if (readout.hidden) return;
   const atBottom = readout.scrollTop + readout.clientHeight >= readout.scrollHeight - 4;
   readout.textContent = screenText();
   if (atBottom) readout.scrollTop = readout.scrollHeight;
 }
+
+let screenQueued = false;
 emulator.add_listener('screen-put-char', () => {
-  if (!readoutQueued && !readout.hidden) {
-    readoutQueued = true;
-    requestAnimationFrame(updateReadout);
-  }
+  if (screenQueued) return;
+  screenQueued = true;
+  requestAnimationFrame(() => {
+    screenQueued = false;
+    checkBooted();
+    updateReadout();
+  });
 });
 
 function showReadout(show) {
@@ -109,26 +150,67 @@ function showReadout(show) {
 showReadout(window.matchMedia('(max-width: 760px)').matches);
 textToggle.addEventListener('click', () => showReadout(readout.hidden));
 
-// Keys reach the machine wherever focus is, except in text fields. Focus goes back to the
-// screen after a button press, so Enter or Space can't press the same button again.
+// Keys go to RavenOS only while the screen has focus, so Tab and other keys work normally on the
+// rest of the page. Inside the screen Tab belongs to the guest; Shift+Escape hands focus back.
+function updateStatus() {
+  if (!booted || failed) return;
+  setStatus(document.activeElement === screen
+    ? 'Running. Keys go to RavenOS; Shift+Esc gives them back.'
+    : 'Running. Click the screen to type.', 'running');
+}
 function focusScreen() {
   screen.focus({ preventScroll: true });
 }
+emulator.add_listener('emulator-ready', () => emulator.keyboard_set_enabled(document.activeElement === screen));
+screen.addEventListener('focus', () => {
+  emulator.keyboard_set_enabled(true);
+  updateStatus();
+});
+screen.addEventListener('blur', () => {
+  emulator.keyboard_set_enabled(false);
+  updateStatus();
+});
+window.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && event.shiftKey && document.activeElement === screen) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    input.focus();
+  }
+}, true);
 
-function send(text) {
+// A command from a button or the line box replaces whatever is half-typed at the prompt rather
+// than being appended to it: erase the visible pending input first (plus a few for trailing
+// spaces, which the screen can't show), then type the command.
+function pendingInput() {
+  const lines = screenText().split('\n');
+  const last = lines[lines.length - 1] || '';
+  const at = last.lastIndexOf(PROMPT.trim());
+  return at === -1 ? '' : last.slice(at + PROMPT.length);
+}
+
+// v86 drops simulated keys too while the keyboard is disabled, so enable it around the (synchronous)
+// send and then restore the focus rule.
+function typeIntoGuest(text) {
+  emulator.keyboard_set_enabled(true);
   emulator.keyboard_send_text(text);
+  emulator.keyboard_set_enabled(document.activeElement === screen);
+}
+
+function runCommand(command) {
+  const erase = Math.min(pendingInput().length + 4, MAX_INPUT);
+  typeIntoGuest('\b'.repeat(erase) + command + '\n');
 }
 
 document.getElementById('chips').addEventListener('click', event => {
   const chip = event.target.closest('button[data-cmd]');
   if (!chip) return;
-  send(chip.dataset.cmd + '\n');
+  runCommand(chip.dataset.cmd);
   focusScreen();
 });
 
 document.getElementById('type-form').addEventListener('submit', event => {
   event.preventDefault();
-  send(input.value + '\n');
+  runCommand(input.value);
   input.value = '';
 });
 
@@ -147,5 +229,5 @@ screen.addEventListener('paste', event => {
   const text = event.clipboardData && event.clipboardData.getData('text');
   if (!text) return;
   event.preventDefault();
-  send(text);
+  typeIntoGuest(text);
 });

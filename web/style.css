@@ -79,15 +79,21 @@ code { font-family: var(--mono); font-size: .92em; color: var(--green); }
 .overlay {
   position: absolute;
   inset: 2px;
-  margin: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 16px;
   border-radius: 8px;
   background: #000;
   color: var(--muted);
   font-family: var(--mono);
+  text-align: center;
 }
-.overlay[hidden] { display: none; }
+.overlay p { margin: 0; max-width: 48ch; }
+.overlay[data-state="error"] p { color: var(--amber); }
+.overlay[hidden], .overlay button[hidden] { display: none; }
 
 .machine-bar {
   display: flex;
@@ -151,6 +157,9 @@ footer { margin-top: 48px; padding: 20px 0 40px; border-top: 1px solid var(--lin
 footer p { margin: 0; color: var(--muted); font-size: .9rem; }
 
 .noscript { width: min(100% - 32px, 752px); margin: 24px auto; color: var(--amber); }
+
+.source-index { width: min(100% - 32px, 752px); margin: 40px auto; }
+.source-index pre { white-space: pre-wrap; color: var(--muted); font: 13px/1.5 var(--mono); }
 
 @media (max-width: 520px) {
   .masthead { padding-top: 24px; }

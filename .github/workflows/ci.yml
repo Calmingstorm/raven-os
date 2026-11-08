@@ -20,3 +20,27 @@ jobs:
         with:
           name: ravenos-iso
           path: build/ravenos.iso
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gcc-multilib binutils grub-pc-bin xorriso mtools
+      - name: Build the web bundle
+        run: ./tools/build-web.sh
+      - name: Browser check (desktop, phone, failed download, mixed input, focus)
+        run: |
+          mkdir -p /tmp/check-web
+          node tools/check-web.mjs --screenshots /tmp/check-web
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: check-web-screenshots
+          path: /tmp/check-web

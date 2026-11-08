@@ -121,6 +121,15 @@ node tools/check-web.mjs      # boots web/dist in headless Chrome at desktop and
 Hosting: `deploy/nginx-ravenos.conf` (server-2) and `deploy/apache-ravenos.calmingstorm.net.conf` (.13, TLS and
 proxy).
 
+## Licenses
+
+- **v86** (BSD-2-Clause, `web/licenses/v86-LICENSE.txt`) is installed from npm at build time, pinned in
+  `web/package.json`.
+- **SeaBIOS** (`web/vendor/bios/*.bin`) is LGPL-3.0. Its corresponding source, the configuration and the build steps are
+  in `web/vendor/bios/source`; the site serves them at `/source/bios/`.
+- The first commit (`cdc80a9`) included build output by mistake, among it a GRUB rescue ISO (`build/ravenos.iso`); the
+  next commit removed it. GRUB is GPL-3.0-or-later, and its source is at https://www.gnu.org/software/grub/.
+
 ## Design direction
 
 Near-term viability milestones:

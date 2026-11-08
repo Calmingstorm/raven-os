@@ -21,11 +21,14 @@
 <main>
   <section class="machine" aria-label="RavenOS machine">
     <div class="bezel">
-      <div id="screen" class="screen" tabindex="0" aria-label="RavenOS console. Click here, then type.">
+      <div id="screen" class="screen" tabindex="0" aria-label="RavenOS console. Keys go to RavenOS while it has focus; Shift+Escape leaves.">
         <div class="textmode"></div>
         <canvas></canvas>
       </div>
-      <p id="overlay" class="overlay">Starting the machine</p>
+      <div id="overlay" class="overlay">
+        <p id="overlay-text">Starting the machine</p>
+        <button type="button" id="retry" hidden>Retry</button>
+      </div>
     </div>
     <div class="machine-bar">
       <p id="status" class="status" role="status">Loading the emulator</p>
@@ -47,7 +50,7 @@
 
   <section class="try" aria-labelledby="try-title">
     <h2 id="try-title">Try a command</h2>
-    <p>Click the screen and type, or tap a command to send it.</p>
+    <p>Click the screen and type, or tap a command to run it. Keys go to RavenOS while the screen has focus; Shift+Esc gives them back to the page.</p>
     <div id="chips" class="chips">
       <button type="button" data-cmd="help">help</button>
       <button type="button" data-cmd="about">about</button>
@@ -68,7 +71,8 @@
 </main>
 
 <footer>
-  <p>Runs on <a href="https://github.com/copy/v86">v86</a> (<a href="licenses/v86-LICENSE.txt">BSD-2-Clause</a>) with <a href="https://www.seabios.org/">SeaBIOS</a> 1.16.2 (<a href="licenses/LGPL-3.0.txt">LGPL-3.0</a>, which extends the <a href="licenses/GPL-3.0.txt">GPL-3.0</a>).</p>
+  <p>RavenOS source: <a href="https://github.com/Calmingstorm/raven-os">github.com/Calmingstorm/raven-os</a>.</p>
+  <p>Runs on <a href="https://github.com/copy/v86">v86</a> (<a href="licenses/v86-LICENSE.txt">BSD-2-Clause</a>) with <a href="https://www.seabios.org/">SeaBIOS</a> 1.16.2 (<a href="licenses/LGPL-3.0.txt">LGPL-3.0</a>, which extends the <a href="licenses/GPL-3.0.txt">GPL-3.0</a>; <a href="source/bios/">source, configuration and build steps</a>).</p>
 </footer>
 
 <noscript><p class="noscript">RavenOS runs in an emulator, so this page needs JavaScript.</p></noscript>
