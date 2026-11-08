@@ -181,6 +181,17 @@ try {
     const inside = await aboutBox();
     await page.focus('#restart');
     assert.deepEqual(await aboutBox(), inside, `at ${width} px the buttons move when focus leaves the screen`);
+    // The machine's buttons are one compact row, beside the status or, on a phone, below it. A rule meant for the
+    // Doom key list once stacked them into a column of full-width buttons.
+    const bar = await page.evaluate(() => {
+      const buttons = [...document.querySelectorAll('.machine-bar button')].map(button => button.getBoundingClientRect());
+      return { tops: buttons.map(button => Math.round(button.top)), button: Math.max(...buttons.map(b => b.height)),
+               height: document.querySelector('.machine-bar').getBoundingClientRect().height };
+    });
+    assert.equal(new Set(bar.tops).size, 1, `at ${width} px the machine's buttons aren't on one row`);
+    const rows = width > 520 ? 1 : 2;
+    assert.ok(bar.height <= rows * bar.button + (rows - 1) * 8 + 1,
+      `at ${width} px the machine bar is ${bar.height} px tall, more than ${rows} row(s)`);
   }
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.focus('#screen');
@@ -287,7 +298,8 @@ try {
   assert.match(await page.textContent('#readout'), /entered: 2/, 'the text view shows the screen');
   if (shots) await page.screenshot({ path: path.join(shots, 'check-web-desktop.png'), fullPage: true });
   assert.deepEqual(desktop.problems, []);
-  results.push(`desktop: booted in ${desktop.bootSeconds.toFixed(1)} s; chip, line box and keyboard reach the shell; `
+  results.push(`desktop: booted in ${desktop.bootSeconds.toFixed(1)} s; machine buttons one row at 1280/600/390 px; `
+    + 'chip, line box and keyboard reach the shell; '
     + 'buttons replace half-typed input; keys only while focused, Shift+Esc leaves, Tab stays inside; '
     + 'gfx pattern twice, text screen back at full width');
 
