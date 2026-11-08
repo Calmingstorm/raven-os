@@ -9,7 +9,10 @@ Focused runners:
 
 * `./tools/keyboard-test.sh`: real set-1 parser and IRQ event queue with mocked
   input port. Make/break, E0 navigation and keypad Enter/slash, dual modifiers,
-  Caps Lock, Ctrl+U, Pause/PrintScreen, overflow and recovery.
+  Caps Lock, Ctrl+U, Pause/PrintScreen, unpaced 150/159-character make/break
+  bursts (including per-character Shift), queue wraparound, exact drop counts
+  and modifier recovery after overflow. The queue holds 1023 events; `stats`
+  exposes a cumulative `keyboard_drops` counter (saturating at UINT32_MAX).
 * `./tools/serial-editor-test.sh`: production shell serial rendering against an
   80x25 ANSI terminal model, including delayed autowrap and bottom scrolling.
   Exercises every cursor position on a 159-character line, shrink, whole-line
@@ -58,6 +61,12 @@ Assertions use actual `screen_adapter` text, color and hardware cursor update
 hooks, not just serial strings. Direct Multiboot flags `0x40` are checked in the
 rendered `boot` output, supplemented by a pinned-v86-specific loader metadata
 check at `0x7c00`. Memory/heap initialization, PS/2 editing, history, Ctrl+U,
-completion, wrapped input, help topics, colored scrollback, cursor hide/restore
-and the guest's no-op Shift+Esc contract are covered. The JSON report records
-the kernel SHA-256, snapshots, timings, failures and limitations.
+completion, wrapped input, unpaced 150/159-character paste with Enter (including
+Shift make/break), zero drops for supported lines, help topics, colored
+scrollback, cursor hide/restore and the guest's no-op Shift+Esc contract are
+covered. The JSON report records the kernel SHA-256, snapshots, timings,
+failures and limitations.
+
+Overflow counting/recovery is tested directly in the host queue tests. v86 has
+its own 1024-byte PS/2 FIFO: larger unpaced injections can lose scancodes there
+before reaching the guest. The guest counter cannot account for upstream loss.

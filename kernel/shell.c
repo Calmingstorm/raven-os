@@ -149,6 +149,7 @@ static void stats(void) {
     vga_write(" fs_bytes="); vga_write_dec(ramfs_bytes_used());
     vga_write(" disk_rw="); vga_write_dec(storage_reads()); vga_write("/"); vga_write_dec(storage_writes());
     vga_write(" version=" RAVEN_VERSION "\n");
+    vga_write("keyboard_drops="); vga_write_dec(keyboard_dropped_events()); vga_putc('\n');
 }
 
 static void cmd_cat(const char *path) {

@@ -19,6 +19,27 @@ static void expect(uint16_t sc, KeyCode code, char ascii, uint8_t mods, uint8_t 
 }
 static void empty(void) { KeyEvent e; CHECK(!keyboard_pop(&e)); }
 
+/* No consumer runs while an emulator injects a paste. Preserve Enter as well
+ * as every make/break, even with per-character Shift transitions. Repeat to
+ * exercise head/tail wraparound rather than only a freshly initialized ring. */
+static void burst_line(unsigned length, int shifted) {
+    unsigned i;
+    for (i = 0; i < length; ++i) {
+        if (shifted) feed(0x2a);
+        feed(0x2d); feed(0xad);
+        if (shifted) feed(0xaa);
+    }
+    feed(0x1c); feed(0x9c);
+    for (i = 0; i < length; ++i) {
+        if (shifted) expect(0x2a,KEY_SHIFT,0,KEY_MOD_SHIFT,1);
+        expect(0x2d,KEY_CHARACTER,shifted ? 'X' : 'x',shifted ? KEY_MOD_SHIFT : 0,1);
+        expect(0x2d,KEY_CHARACTER,shifted ? 'X' : 'x',shifted ? KEY_MOD_SHIFT : 0,0);
+        if (shifted) expect(0x2a,KEY_SHIFT,0,0,0);
+    }
+    expect(0x1c,KEY_ENTER,0,0,1); expect(0x1c,KEY_ENTER,0,0,0);
+    empty();
+}
+
 int main(void) {
     static const struct { uint8_t sc; KeyCode code; } nav[] = {
         {0x47,KEY_HOME},{0x48,KEY_UP},{0x49,KEY_PAGEUP},{0x4b,KEY_LEFT},
@@ -74,11 +95,30 @@ int main(void) {
       for (i=0; i<sizeof(ignored); ++i) feed(ignored[i]); }
     empty(); port_byte=0x1e; keyboard_on_irq(); expect(0x1e,KEY_CHARACTER,'a',0,1);
     keyboard_init();
-    for (i=0; i<KEYBUF_CAP+20; ++i) feed(0x1e);
+    CHECK(keyboard_dropped_events() == 0);
+    burst_line(150,0);
+    burst_line(159,0);
+    burst_line(159,1);
+    burst_line(159,1);
+    CHECK(keyboard_dropped_events() == 0);
+    keyboard_init();
+    for (i=0; i<KEYBUF_CAP-1; ++i) feed(0x1e);
+    CHECK(keyboard_dropped_events() == 0); /* every usable slot fits */
+    for (i=0; i<21; ++i) feed(0x1e);
     feed(0x2a); /* dropped event, but state must still advance */
+    CHECK(keyboard_dropped_events() == 22);
     for (i=0; i<KEYBUF_CAP-1; ++i) expect(0x1e,KEY_CHARACTER,'a',0,1);
     empty(); feed(0x1e); expect(0x1e,KEY_CHARACTER,'A',KEY_MOD_SHIFT,1);
     feed(0xaa); expect(0x2a,KEY_SHIFT,0,0,0); empty();
+    CHECK(keyboard_dropped_events() == 22); /* draining does not clear it */
+    keyboard_init(); CHECK(keyboard_dropped_events() == 0);
+    feed(0x2a); expect(0x2a,KEY_SHIFT,0,KEY_MOD_SHIFT,1);
+    for (i=0; i<KEYBUF_CAP-1; ++i) feed(0x1e);
+    feed(0xaa); /* a dropped modifier release must also update state */
+    CHECK(keyboard_dropped_events() == 1);
+    for (i=0; i<KEYBUF_CAP-1; ++i) expect(0x1e,KEY_CHARACTER,'A',KEY_MOD_SHIFT,1);
+    empty(); feed(0x1e); expect(0x1e,KEY_CHARACTER,'a',0,1); empty();
+    CHECK(keyboard_dropped_events() == 1);
     puts("keyboard tests passed");
     return 0;
 }

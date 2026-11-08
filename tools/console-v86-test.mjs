@@ -97,6 +97,8 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const snapshot = () => page.evaluate(() => ({rows:emulator.screen_adapter.get_text_screen().map(r=>r.trimEnd()),...observed}));
 const text = async () => (await snapshot()).rows.join('\n');
 const send = async value => { await page.evaluate(async v => emulator.keyboard_send_text(v, 8), value); await sleep(100); };
+// Deliberately omit v86's optional per-character delay to reproduce real paste.
+const burst = async value => { await page.evaluate(v => emulator.keyboard_send_text(v), value); await sleep(140); };
 const codes = async value => { await page.evaluate(v => emulator.keyboard_send_scancodes(v), value); await sleep(140); };
 const key = async code => codes(Array.isArray(code) ? [0xE0, code[0], 0xE0, code[0] | 0x80] : [code, code | 0x80]);
 const ctrlU = () => codes([0x1D, 0x16, 0x96, 0x9D]);
@@ -186,6 +188,21 @@ try {
         await send('Z');await expectInput('a'.repeat(72)+'Z'+'a'.repeat(28),73);
         await key([0x53]);await key(0x0E);await expectInput('a'.repeat(99),72);
         await ctrlU();await expectInput('');
+    });
+    await test('unpaced paste preserves 150/159-character lines and Enter',async()=>{
+        for (const [length,character] of [[150,'x'],[159,'x'],[159,'X']]) {
+            await command('clear');
+            const value=character.repeat(length);
+            await burst(value+'\n');
+            await waitText(/unknown command:/);
+            const screen=await snapshot(), prompt=input(screen);
+            // Read the wrapped result separately from the echoed input, so
+            // the test detects any missing character, not merely lost Enter.
+            assert.equal(screen.rows.slice(0,prompt.row).join('').split('unknown command: ')[1],value);
+            await expectInput('');
+            await key([0x48]);await expectInput(value);await ctrlU();
+        }
+        assert.match((await command('stats',/keyboard_drops=/)).rows.join('\n'),/keyboard_drops=0\b/);
     });
     await test('help and every topic fit 80x25 viewport',async()=>{
         for(const [topic,header] of [['','RavenOS commands'],['system','System and inspection'],

@@ -4,6 +4,9 @@
  * stays empty; on overflow the newest event is dropped, not modifier state. */
 static KeyEvent queue[KEYBUF_CAP];
 static volatile uint32_t head, tail;
+/* IRQ1 is the only writer; aligned 32-bit reads are atomic on this CPU.
+ * Saturate rather than wrapping to zero and hiding a history of lost input. */
+static volatile uint32_t dropped_events;
 static uint8_t left_shift, right_shift, left_ctrl, right_ctrl, left_alt, right_alt;
 static uint8_t caps_lock, caps_down, extended, pause_remaining;
 
@@ -36,7 +39,10 @@ static void compiler_barrier(void) { __asm__ volatile ("" ::: "memory"); }
 
 static void push_event(KeyEvent event) {
     uint32_t h = head, next = (h + 1) % KEYBUF_CAP;
-    if (next == tail) return;
+    if (next == tail) {
+        if (dropped_events != UINT32_MAX) ++dropped_events;
+        return;
+    }
     queue[h] = event;
     compiler_barrier();
     head = next;
@@ -44,10 +50,13 @@ static void push_event(KeyEvent event) {
 
 void keyboard_init(void) {
     head = tail = 0;
+    dropped_events = 0;
     left_shift = right_shift = left_ctrl = right_ctrl = left_alt = right_alt = 0;
     caps_lock = caps_down = extended = pause_remaining = 0;
     wyrd_append("driver.keyboard", "init", "ps2", "ok", "irq1 line enabled");
 }
+
+uint32_t keyboard_dropped_events(void) { return dropped_events; }
 
 int keyboard_pop(KeyEvent *out) {
     uint32_t t = tail;

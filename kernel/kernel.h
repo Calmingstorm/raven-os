@@ -8,7 +8,9 @@
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
 #define WYRD_CAP 256
-#define KEYBUF_CAP 256
+/* 1023 usable events: a 159-character paste plus Enter fits even when each
+ * character needs its own Shift make/break pair (638 events), with margin. */
+#define KEYBUF_CAP 1024
 #define CAPS_CAP 64
 #define OBJECT_CAP 64
 #define PMM_MAX_FRAMES 32768 /* 128 MiB at 4 KiB pages; enough for current QEMU target */
@@ -194,6 +196,7 @@ void keyboard_irq(void);
 void keyboard_on_irq(void);
 void keyboard_feed_scancode(uint8_t scancode);
 int keyboard_pop(KeyEvent *out);
+uint32_t keyboard_dropped_events(void);
 
 void shell_init(void);
 void shell_tick(void);
