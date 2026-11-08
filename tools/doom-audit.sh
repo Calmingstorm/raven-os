@@ -97,29 +97,16 @@ if grep -E '^[[:space:]]*[[:xdigit:]]+:[[:space:]]+((f|v)[a-z0-9]*|emms|wait|ldm
   exit 1
 fi
 
-# Format strings as the compiler sees them, with RavenOS's macros, escapes decoded ("\045" is "%") and adjacent
-# literals joined ("%" "f" is "%f"): no %f/%e/%g/%a and no %n. Escaped percent signs (%%) are literal text.
+# Format strings as the compiler sees them, with RavenOS's macros: no %f/%e/%g/%a and no %n. tools/format-scan.py
+# decodes literals as C does (checked against GCC by tools/format-scan-test.sh) and reports any it can't decode.
 for src in "$ROOT"/third_party/doomgeneric/*.c; do
   gcc -m32 -E -P -ffreestanding -nostdinc -isystem "$(gcc -print-file-name=include)" -I"$ROOT/libc/include" \
     -I"$ROOT/kernel" -I"$ROOT/third_party/doomgeneric" -DRAVENOS "$src" |
-    python3 -c '
-import codecs, re, sys
-literal = r"\"(?:[^\"\\\n]|\\.)*\""
-conversion = re.compile(r"%[-+ #0]*[0-9*]*(?:\.[0-9*]*)?(?:hh|h|ll|l|L|z|j|t)?[fFeEgGaAn]")
-def text(body):  # the characters a literal stands for: \045 and \x25 are percent signs too
-    try:
-        return codecs.decode(body.encode("latin-1"), "unicode_escape")
-    except (UnicodeError, ValueError):
-        return body
-for run in re.finditer(r"(?:%s\s*)+" % literal, sys.stdin.read()):
-    joined = "".join(text(part[1:-1]) for part in re.findall(literal, run.group(0)))
-    if conversion.search(joined.replace("%%", "")):
-        print(sys.argv[1] + ": " + joined)
-' "$(basename "$src")"
+    python3 "$ROOT/tools/format-scan.py" "$(basename "$src")"
 done > "$TMP/formats"
 if [ -s "$TMP/formats" ]; then
   cat "$TMP/formats" >&2
-  echo "doom-audit: float or %n conversions in engine format strings" >&2
+  echo "doom-audit: float or %n conversions, or literals that cannot be decoded, in engine format strings" >&2
   exit 1
 fi
 echo "doom-audit: ${#engine[@]} engine objects import exactly the agreed surface; only libgcc's __divdi3 object is linked; no x87/SIMD; no float or %n formats"
