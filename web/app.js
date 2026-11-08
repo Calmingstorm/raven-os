@@ -266,7 +266,8 @@ function runCommand(command) {
   typeIntoGuest(command + '\n');
 }
 
-document.getElementById('chips').addEventListener('click', event => {
+// Command chips and the Start Doom button.
+document.querySelector('main').addEventListener('click', event => {
   const chip = event.target.closest('button[data-cmd]');
   if (!chip) return;
   runCommand(chip.dataset.cmd);

@@ -22,12 +22,15 @@ const types = {
   '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css',
   '.wasm': 'application/wasm', '.svg': 'image/svg+xml', '.txt': 'text/plain', '.json': 'application/json',
 };
+// Locally, each Doom data disk chunk is delayed like a real connection's: RavenOS has to wait out a slow chunk
+// rather than give up on it. The live site (--url) brings its own latency.
+const DISK_DELAY_MS = Number(process.env.RAVENOS_DISK_DELAY_MS ?? 400);
 let server;
 let url = option('--url');
 if (!url) {
   const dist = path.join(root, 'web/dist');
   assert.ok(fs.existsSync(path.join(dist, 'index.html')), 'no web/dist/index.html: run tools/build-web.sh first');
-  server = http.createServer((req, res) => {
+  server = http.createServer(async (req, res) => {
     let name = decodeURIComponent(new URL(req.url, 'http://local').pathname);
     if (name.endsWith('/')) name += 'index.html';
     const file = path.join(dist, path.normalize(name));
@@ -39,6 +42,7 @@ if (!url) {
     // The Doom disk is read in byte ranges, answered as nginx does: v86 rejects a whole file sent for a range.
     const range = /^bytes=(\d+)-(\d+)$/.exec(req.headers.range || '');
     if (range) {
+      await new Promise(resolve => setTimeout(resolve, DISK_DELAY_MS));
       const size = fs.statSync(file).size;
       const start = Number(range[1]);
       const end = Math.min(Number(range[2]), size - 1);
@@ -286,6 +290,39 @@ try {
   results.push(`desktop: booted in ${desktop.bootSeconds.toFixed(1)} s; chip, line box and keyboard reach the shell; `
     + 'buttons replace half-typed input; keys only while focused, Shift+Esc leaves, Tab stays inside; '
     + 'gfx pattern twice, text screen back at full width');
+
+  // Doom from the page's own button on a fresh machine, through the menu and back to the shell.
+  const doom = await open(1280);
+  const doomStarted = Date.now();
+  await doom.page.getByRole('button', { name: 'Start Doom' }).click();
+  await doom.page.waitForFunction(() => document.querySelector('#screen canvas').width === 640, null, { timeout: 120000 })
+    .catch(async () => assert.fail(`Doom never reached graphics; the screen shows:\n${await screenText(doom.page)}`));
+  const doomSeconds = (Date.now() - doomStarted) / 1000;
+  await doom.page.waitForTimeout(2000);
+  const doomColours = () => doom.page.evaluate(() => {
+    const canvas = document.querySelector('#screen canvas');
+    const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+    const seen = new Set();
+    for (let i = 0; i < data.length; i += 4 * 7) seen.add((data[i] << 16) | (data[i + 1] << 8) | data[i + 2]);
+    return seen.size;
+  });
+  assert.ok(await doomColours() >= 64, 'the first Doom frames are the title screen, not a blank or test pattern');
+  assert.equal(await doom.page.evaluate(() => document.activeElement.id), 'screen', 'after the button, keys go to Doom');
+  // Esc opens the menu; up from New Game wraps to Quit Game; Enter asks; y quits.
+  for (const key of ['Escape', 'ArrowUp', 'Enter', 'y']) {
+    await doom.page.keyboard.press(key);
+    await doom.page.waitForTimeout(800);
+  }
+  await doom.page.waitForFunction(() => document.querySelector('#screen canvas').width === 720, null, { timeout: 30000 })
+    .catch(async () => assert.fail('Quit Game never returned to the text screen'));
+  await waitForScreen(doom.page, 'Doom session ended: exit (status=0).');
+  assert.match(await screenText(doom.page), /I_InitGraphics/, "Doom's startup log stays in the console");
+  if (shots) await doom.page.screenshot({ path: path.join(shots, 'check-web-doom.png'), fullPage: true });
+  assert.deepEqual(doom.problems, []);
+  results.push(`doom: Start Doom reached graphics in ${doomSeconds.toFixed(1)} s`
+    + `${server ? ` with each disk chunk delayed ${DISK_DELAY_MS} ms` : ''}; the title frame, then the menu's Quit Game `
+    + 'back to the shell (exit 0) with the startup log kept');
+  await doom.page.close();
 
   // Phone: the text view is open from the start and follows what the machine prints. Run on a CPU slowed
   // fourfold like a cheap phone: a slow machine once lost the key that should end gfx, because it arrived while
