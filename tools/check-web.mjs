@@ -55,10 +55,23 @@ export const cursor = page => page.evaluate(() => {
 });
 const screenText = async page => (await screenRows(page)).join('\n');
 
+// Record clicks, text the page sends, and scancodes reaching the emulated keyboard, so a failed wait
+// can say where input stopped.
+const instrument = page => page.evaluate(() => {
+  const trace = window.__trace = { clicks: [], sent: [], scancodes: 0 };
+  document.addEventListener('click', event => trace.clicks.push(event.target.outerHTML.slice(0, 60)), true);
+  const send = window.emulator.keyboard_send_text.bind(window.emulator);
+  window.emulator.keyboard_send_text = (text, delay) => { trace.sent.push(text); return send(text, delay); };
+  const bus = window.emulator.keyboard_adapter.bus;
+  const busSend = bus.send.bind(bus);
+  bus.send = (name, data) => { if (name === 'keyboard-code') trace.scancodes++; return busSend(name, data); };
+});
+
 // On a failed wait, report the state that decides whether keys can reach the guest.
 const inputState = page => page.evaluate(() => {
   const ps2 = window.emulator.v86.cpu.devices.ps2;
   return {
+    trace: window.__trace,
     focused: document.activeElement && (document.activeElement.id || document.activeElement.tagName),
     keyboardEnabled: window.emulator.keyboard_adapter.emu_enabled,
     ps2: ps2 && {
@@ -72,14 +85,19 @@ const inputState = page => page.evaluate(() => {
 async function waitForScreen(page, text, timeout = 10000) {
   await page.waitForFunction(
     wanted => window.emulator.screen_adapter.get_text_screen().join('\n').includes(wanted), text, { timeout },
-  ).catch(async () => assert.fail(`screen never showed ${JSON.stringify(text)}; input state: `
-    + `${JSON.stringify(await inputState(page))}; it shows:\n${await screenText(page)}`));
+  ).catch(async () => {
+    if (shots) await page.screenshot({ path: path.join(shots, 'check-web-failure.png'), fullPage: true });
+    assert.fail(`screen never showed ${JSON.stringify(text)}; input state: ${JSON.stringify(await inputState(page))}; `
+      + `page log: ${JSON.stringify(page.log)}; it shows:\n${await screenText(page)}`);
+  });
 }
 
 async function open(width, { block } = {}) {
   const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
   const problems = [];
-  page.on('pageerror', error => problems.push(`page error: ${error.message}`));
+  page.log = [];
+  page.on('pageerror', error => { problems.push(`page error: ${error.message}`); page.log.push(`pageerror: ${error.message}`); });
+  page.on('console', message => page.log.push(`${message.type()}: ${message.text().slice(0, 200)}`));
   if (block) {
     await page.route(`**/${block}`, route => route.fulfill({ status: 404, body: 'gone' }));
   } else {
@@ -91,6 +109,7 @@ async function open(width, { block } = {}) {
   if (!block) {
     await page.waitForFunction(() => document.getElementById('status').dataset.state === 'running', null, { timeout: 30000 });
     await waitForScreen(page, 'raven>');
+    await instrument(page);
   }
   return { page, problems, bootSeconds: (Date.now() - started) / 1000 };
 }
