@@ -35,7 +35,7 @@ done
 ld -m elf_i386 -r "$TMP"/i386-*.o -o "$TMP/libc-i386.o"
 nm -u "$TMP/libc-i386.o" | tee "$TMP/undefined.txt"
 if sed -n 's/^ *U //p' "$TMP/undefined.txt" | grep -Ev \
- '^(memcpy|memset|strlen|strcmp|strncmp|raven_doom_(abort|exit|malloc|calloc|realloc|free)|raven_wad_(open|size|read_at|close)|serial_putc)$'; then
+ '^(memcpy|memset|strlen|strcmp|strncmp|raven_doom_(abort|exit|malloc|calloc|realloc|free)|raven_wad_(open|size|read_at|close)|vga_putc)$'; then
  echo 'unexpected undefined symbol (including compiler-runtime helpers)' >&2; exit 1
 fi
 if objdump -d "$TMP/libc-i386.o" | grep -Eq '\b(fld|fst|fadd|fsub|fmul|fdiv|fild|fist|xmm|mm[0-7])'; then
