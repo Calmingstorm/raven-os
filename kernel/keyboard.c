@@ -54,10 +54,14 @@ uint32_t keyboard_irq_save(void);
 void keyboard_irq_restore(uint32_t flags);
 #endif
 
-uint32_t keyboard_held_snapshot(uint8_t out[32]) {
+/* One recovery point, under one interrupt guard: the keys physically down, the dropped count, and an empty queue.
+ * Every transition still queued is already reflected in the snapshot, so replaying one later (a press whose release
+ * was dropped, say) would undo it; anything that arrives after the guard is newer and stays queued. */
+uint32_t keyboard_recovery_snapshot(uint8_t out[32]) {
     uint32_t flags = keyboard_irq_save();
     for (unsigned i = 0; i < sizeof(held); i++) out[i] = held[i];
     uint32_t dropped = dropped_events;
+    tail = head;
     keyboard_irq_restore(flags);
     return dropped;
 }

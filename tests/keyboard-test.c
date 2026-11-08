@@ -152,21 +152,28 @@ int main(void) {
         keyboard_init();
         feed(0x1c); CHECK(keyboard_pop(&e) && !e.repeat); /* init forgets held keys */
     }
-    /* The held snapshot is the driver's physical record, dropped events included, with their count. */
+    /* The recovery snapshot is the driver's physical record, dropped events included, with their count, and it
+     * empties the queue in the same guarded instant; later events queue normally. */
     keyboard_init();
     {
         uint8_t held[32];
         unsigned set = 0;
+        KeyEvent e;
         feed(0x1d); ext(0x48);
-        CHECK(keyboard_held_snapshot(held) == 0 && snapshots == 1 && !irqs_off);
+        CHECK(keyboard_recovery_snapshot(held) == 0 && snapshots == 1 && !irqs_off);
         for (i = 0; i < 256; ++i) set += held_bit(held, i);
         CHECK(set == 2 && held_bit(held, 0x1d) && held_bit(held, 0x80 | 0x48));
+        empty();                                       /* both makes are in the snapshot, not the queue */
         for (i = 0; i < KEYBUF_CAP; ++i) ext(0x48);   /* fill the queue with Up repeats */
         feed(0x9d);                                    /* Ctrl's release is dropped... */
         CHECK(keyboard_dropped_events() >= 1);
-        CHECK(keyboard_held_snapshot(held) == keyboard_dropped_events());
+        CHECK(keyboard_recovery_snapshot(held) == keyboard_dropped_events());
         CHECK(!held_bit(held, 0x1d) && held_bit(held, 0x80 | 0x48));   /* ...but the record knows it's up */
         CHECK(!irqs_off);
+        empty();
+        feed(0x1e);                                    /* after the snapshot, events queue as before */
+        CHECK(keyboard_pop(&e) && e.scancode == 0x1e && e.pressed);
+        empty();
     }
     puts("keyboard tests passed");
     return 0;

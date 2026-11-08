@@ -23,7 +23,7 @@ uint32_t raven_doom_key_losses(void) {
 }
 
 uint32_t raven_doom_key_held(uint8_t held[32]) {
-    return keyboard_held_snapshot(held);
+    return keyboard_recovery_snapshot(held);
 }
 
 int raven_doom_key_next(RavenDoomKey *out) {

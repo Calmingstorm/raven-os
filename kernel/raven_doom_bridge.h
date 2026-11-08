@@ -22,7 +22,8 @@ int raven_doom_key_next(RavenDoomKey *out);
 /* How many transitions the keyboard driver has dropped so far, because its queue was full. */
 uint32_t raven_doom_key_losses(void);
 /* The keys physically down: bit slot % 8 of held[slot / 8], slot = 0x80 for an extended key | its scancode.
- * Returns the loss count read together with it. */
+ * Returns the loss count read together with it, and discards the queued transitions, which it already reflects:
+ * the next key from raven_doom_key_next is newer than the snapshot. */
 uint32_t raven_doom_key_held(uint8_t held[32]);
 
 #endif

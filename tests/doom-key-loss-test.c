@@ -14,8 +14,20 @@ uint8_t inb(uint16_t port) { (void)port; return 0; }
 void wyrd_append(const char *a, const char *b, const char *c, const char *d, const char *e) {
     (void)a; (void)b; (void)c; (void)d; (void)e;
 }
-uint32_t keyboard_irq_save(void) { return 0x200u; }
-void keyboard_irq_restore(uint32_t flags) { (void)flags; }
+/* Interrupts that arrive just before the recovery snapshot's guard, or just after it. */
+static void (*before_guard)(void), (*after_guard)(void);
+uint32_t keyboard_irq_save(void) {
+    void (*irqs)(void) = before_guard;
+    before_guard = 0;
+    if (irqs) irqs();
+    return 0x200u;
+}
+void keyboard_irq_restore(uint32_t flags) {
+    void (*irqs)(void) = after_guard;
+    (void)flags;
+    after_guard = 0;
+    if (irqs) irqs();
+}
 int gfx_available(const char **why) { *why = 0; return 1; }
 volatile uint32_t *gfx_begin(uint32_t *stride, const char **why) { (void)stride; *why = "not in this test"; return 0; }
 void gfx_end(void) {}
@@ -46,6 +58,20 @@ static void frames(unsigned n) {
 static void fill_queue(void) {
     for (unsigned i = 0; i < KEYBUF_CAP; i++) ext(0x48);
 }
+
+/* A loss with no effect on Doom: keypad 7 (unmapped) pressed, repeated past the queue's end and released. */
+static void unmapped_loss(void) {
+    for (unsigned i = 0; i < KEYBUF_CAP; i++) feed(0x47);
+    feed(0xc7);
+}
+
+/* The burst the review found: between DG_GetKey's last empty pop and its snapshot, 1,022 A makes and Ctrl's press
+ * fill the queue, and Ctrl's release is dropped. */
+static void refill_burst(void) {
+    for (unsigned i = 0; i < 1022; i++) feed(0x1e);
+    feed(0x1d); feed(0x9d);
+}
+static void newer_press(void) { ext(0x4d); }
 
 int main(void) {
     keyboard_init();
@@ -90,7 +116,30 @@ int main(void) {
     frames(2);
     for (unsigned k = 0; k < 256; k++) CHECK(!down[k]);
 
-    printf("doom-key-loss-test: dropped releases and presses recovered through the real driver (%u events dropped)\n",
+    /* Transitions queued after the drain but before the snapshot are in the snapshot: replaying Ctrl's press would
+     * hold fire with no further loss to correct it. */
+    unmapped_loss();
+    before_guard = refill_burst;
+    frames(100);
+    CHECK(!before_guard);                 /* the snapshot ran, and the burst with it */
+    CHECK(!down[KEY_FIRE]);
+    CHECK(down['a']);                     /* A is physically down */
+    feed(0x9e);
+    frames(2);
+    CHECK(!down['a']);
+
+    /* A key that arrives after the snapshot's guard is newer, and is kept. */
+    unmapped_loss();
+    after_guard = newer_press;
+    frames(100);
+    CHECK(!after_guard);
+    CHECK(down[KEY_RIGHTARROW]);
+    ext(0xcd);
+    frames(2);
+    for (unsigned k = 0; k < 256; k++) CHECK(!down[k]);
+
+    printf("doom-key-loss-test: dropped releases and presses recovered through the real driver, including a burst "
+           "just before the snapshot and a key just after it (%u events dropped)\n",
            keyboard_dropped_events());
     return 0;
 }
