@@ -7,10 +7,12 @@ for mode in 0 1 2 3 4 5 6; do
   bash "$ROOT/tools/round2-paging-build.sh" "$OUT" "$mode"
   dest="$OUT/mode-$mode"
   # Real Multiboot entry, no disk, NIC, image writes or full kernel main.
+  # Do not use -no-shutdown: QEMU >= 9.1 routes isa-debug-exit through the
+  # shutdown machinery, so that flag stops the VM instead of returning 33.
   code=0
   timeout 10 qemu-system-i386 -machine pc -cpu pentium3 -m 128M \
     -kernel "$dest/round2-paging.kernel" -nodefaults -display none -serial stdio \
-    -monitor none -no-reboot -no-shutdown \
+    -monitor none -no-reboot \
     -device isa-debug-exit,iobase=0xf4,iosize=0x04 > "$dest/serial.log" 2>&1 || code=$?
   cat "$dest/serial.log"
   ! grep -q 'ROUND2 FAIL' "$dest/serial.log"

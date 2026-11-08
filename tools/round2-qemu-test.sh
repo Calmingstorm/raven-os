@@ -10,9 +10,11 @@ for mode in integrated fault early-fault; do
     printf 'set timeout=0\nset default=0\nmenuentry "round2" {\n multiboot /boot/guest.kernel\n boot\n}\n' > "$TMP/iso/boot/grub/grub.cfg"
     grub-mkrescue -o "$TMP/$mode.iso" "$TMP/iso" > "$TMP/grub-$mode.log" 2>&1
     if [[ "$mode" == integrated ]]; then
+        # QEMU >= 9.1 honors -no-shutdown for isa-debug-exit as well, which
+        # would leave this successful guest stopped instead of returning 33.
         code=0
         timeout --kill-after=2 25 qemu-system-i386 -cdrom "$TMP/$mode.iso" -m 128M \
-            -display none -serial stdio -monitor none -no-reboot -no-shutdown \
+            -display none -serial stdio -monitor none -no-reboot \
             -device isa-debug-exit,iobase=0xf4,iosize=0x04 > "$TMP/$mode.log" 2>&1 || code=$?
         cat "$TMP/$mode.log"
         [[ "$code" == 33 ]]
