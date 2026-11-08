@@ -22,7 +22,7 @@ static const char *const commands[] = {
     "send", "env", "sethost", "pkgs", "pkg-install", "pkg-remove", "health",
     "metrics", "proc", "services", "restart", "security", "power", "reboot",
     "shutdown", "user", "exec", "run", "abi", "rings", "procps", "ps-spawn",
-    "sys", "tasks", "spawn", "kill", "snapshot", "panic-test", "debug-stage-journal"
+    "sys", "tasks", "spawn", "kill", "snapshot", "panic-test", "debug-stage-journal", "gfx"
 };
 
 static void prompt(void) {
@@ -47,6 +47,7 @@ static void write_help(const char *topic) {
                   "           env sethost health metrics proc clock consoles switchtty\n"
                   "           services restart security power reboot shutdown snapshot\n"
                   "  memory   boot mem alloc paging heap\n"
+                  "  graphics gfx (640x400 test pattern) | gfx info\n"
                   "  files    fs ls cat edit append write rm\n"
                   "  disk     disk fsck ata ata-read ata-write save load appenddisk\n"
                   "           sync deldisk format install install-run debug-stage-journal\n"
@@ -71,8 +72,12 @@ static void write_help(const char *topic) {
                   "  boot    Multiboot flags and validated memory map summary\n"
                   "  mem     Physical frame allocator status\n"
                   "  alloc   Allocate one frame (not automatically freed)\n"
-                  "  paging  Paging status (only the first 4 MiB mapped)\n"
+                  "  paging  Identity map, heap and MMIO windows\n"
                   "  heap    Multi-page kernel heap status\n");
+    } else if (!strcmp(topic, "graphics")) {
+        vga_write("Graphics (Bochs VBE display: QEMU std-vga, v86)\n"
+                  "  gfx       Switch to 640x400x32, draw a test pattern; any key returns\n"
+                  "  gfx info  Display device, framebuffer and mode availability\n");
     } else if (!strcmp(topic, "files")) {
         vga_write("RAM files (changes are not persistent until saved or synced)\n"
                   "  fs                     Filesystem status\n"
@@ -244,6 +249,8 @@ void shell_execute(const char *cmd) {
     else if (!strcmp(cmd, "alloc")) { uint32_t frame = pmm_alloc_frame(); vga_write("allocated frame: "); vga_write_hex(frame); vga_putc('\n'); }
     else if (!strcmp(cmd, "paging")) paging_render();
     else if (!strcmp(cmd, "heap")) heap_render();
+    else if (!strcmp(cmd, "gfx")) gfx_command();
+    else if (!strcmp(cmd, "gfx info")) gfx_render_info();
     else if (!strcmp(cmd, "fs")) ramfs_render();
     else if (!strcmp(cmd, "ls")) cmd_ls("/");
     else if ((arg = arg_after(cmd, "ls "))) cmd_ls(arg);

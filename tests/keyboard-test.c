@@ -119,6 +119,23 @@ int main(void) {
     for (i=0; i<KEYBUF_CAP-1; ++i) expect(0x1e,KEY_CHARACTER,'A',KEY_MOD_SHIFT,1);
     empty(); feed(0x1e); expect(0x1e,KEY_CHARACTER,'a',0,1); empty();
     CHECK(keyboard_dropped_events() == 1);
+    /* A make for a key that is already held is a typematic repeat; only a make after its release is new. */
+    keyboard_init();
+    {
+        KeyEvent e;
+        feed(0x1c); CHECK(keyboard_pop(&e) && e.code == KEY_ENTER && e.pressed && !e.repeat);
+        feed(0x1c); CHECK(keyboard_pop(&e) && e.code == KEY_ENTER && e.pressed && e.repeat);
+        feed(0x9c); CHECK(keyboard_pop(&e) && e.code == KEY_ENTER && !e.pressed && !e.repeat);
+        feed(0x1c); CHECK(keyboard_pop(&e) && e.code == KEY_ENTER && e.pressed && !e.repeat);
+        feed(0x9c); CHECK(keyboard_pop(&e) && !e.pressed);
+        /* Extended keys are tracked apart from their twins: keypad Enter is not Enter. */
+        ext(0x1c); CHECK(keyboard_pop(&e) && e.scancode == 0xe01c && e.pressed && !e.repeat);
+        feed(0x1c); CHECK(keyboard_pop(&e) && e.scancode == 0x1c && e.pressed && !e.repeat);
+        ext(0x1c); CHECK(keyboard_pop(&e) && e.scancode == 0xe01c && e.pressed && e.repeat);
+        empty();
+        keyboard_init();
+        feed(0x1c); CHECK(keyboard_pop(&e) && !e.repeat); /* init forgets held keys */
+    }
     puts("keyboard tests passed");
     return 0;
 }

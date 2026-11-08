@@ -118,6 +118,12 @@ void vga_clear(void) {
     cursor_update();
 }
 
+/* Repaint the screen from the console's own buffers and restore the cursor, e.g. after graphics mode. */
+void vga_refresh(void) {
+    render();
+    cursor_update();
+}
+
 void vga_scrollback(int lines) {
     if (lines > 0) {
         size_t amount = (size_t)lines;

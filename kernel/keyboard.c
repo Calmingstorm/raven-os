@@ -9,6 +9,8 @@ static volatile uint32_t head, tail;
 static volatile uint32_t dropped_events;
 static uint8_t left_shift, right_shift, left_ctrl, right_ctrl, left_alt, right_alt;
 static uint8_t caps_lock, caps_down, extended, pause_remaining;
+/* Keys currently held, by (extended << 7 | scancode): a make for a held key is a typematic repeat. */
+static uint8_t held[32];
 
 static const char plain[128] = {
     [0x02]='1',[0x03]='2',[0x04]='3',[0x05]='4',[0x06]='5',
@@ -53,6 +55,7 @@ void keyboard_init(void) {
     dropped_events = 0;
     left_shift = right_shift = left_ctrl = right_ctrl = left_alt = right_alt = 0;
     caps_lock = caps_down = extended = pause_remaining = 0;
+    memset(held, 0, sizeof(held));
     wyrd_append("driver.keyboard", "init", "ps2", "ok", "irq1 line enabled");
 }
 
@@ -123,6 +126,10 @@ void keyboard_feed_scancode(uint8_t byte) {
     mods = (left_shift || right_shift ? KEY_MOD_SHIFT : 0) |
            (left_ctrl || right_ctrl ? KEY_MOD_CTRL : 0) |
            (left_alt || right_alt ? KEY_MOD_ALT : 0);
+    uint8_t slot = (uint8_t)((ext ? 0x80 : 0) | sc), bit = (uint8_t)(1u << (slot % 8));
+    event.repeat = (uint8_t)(down && (held[slot / 8] & bit));
+    if (down) held[slot / 8] |= bit;
+    else held[slot / 8] &= (uint8_t)~bit;
     event.scancode = (uint16_t)(ext ? 0xe000 | sc : sc);
     event.code = code;
     event.ascii = ascii;

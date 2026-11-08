@@ -157,6 +157,28 @@ void serial_render(void);
 void outb(uint16_t port, uint8_t value);
 uint8_t inb(uint16_t port);
 void io_wait(void);
+uint16_t inw(uint16_t port);
+void outw(uint16_t port, uint16_t value);
+uint32_t inl(uint16_t port);
+void outl(uint16_t port, uint32_t value);
+
+/* PCI configuration mechanism #1 (ports 0xCF8/0xCFC). */
+typedef struct {
+    uint8_t bus, slot, func;
+    uint16_t vendor, device;
+    uint8_t class_code, subclass;
+} PciDevice;
+uint32_t pci_read32(const PciDevice *dev, uint8_t offset);
+void pci_write32(const PciDevice *dev, uint8_t offset, uint32_t value);
+/* The nth (from 0) device of a class, in bus/slot/function order. */
+int pci_find_class(uint8_t class_code, uint8_t subclass, uint32_t nth, PciDevice *out);
+void pci_enable_memory(const PciDevice *dev);
+/* A validated 32-bit memory BAR: returns 1 with its base and size, or 0. */
+int pci_memory_bar(const PciDevice *dev, uint8_t index, uint32_t *base, uint32_t *size);
+
+void gfx_command(void);
+void gfx_render_info(void);
+void vga_refresh(void);
 
 void *memset(void *dst, int value, size_t n);
 void *memcpy(void *dst, const void *src, size_t n);
@@ -203,6 +225,7 @@ typedef struct {
     char ascii;
     uint8_t modifiers;
     uint8_t pressed;
+    uint8_t repeat;   /* a make for a key already held: typematic repeat, not a new press */
 } KeyEvent;
 
 void keyboard_init(void);
