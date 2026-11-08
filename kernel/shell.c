@@ -1,4 +1,5 @@
 #include "kernel.h"
+#include "raven_doom_runtime.h"
 
 static char line[160];
 static uint32_t line_len;
@@ -22,7 +23,7 @@ static const char *const commands[] = {
     "send", "env", "sethost", "pkgs", "pkg-install", "pkg-remove", "health",
     "metrics", "proc", "services", "restart", "security", "power", "reboot",
     "shutdown", "user", "exec", "run", "abi", "rings", "procps", "ps-spawn",
-    "sys", "tasks", "spawn", "kill", "snapshot", "panic-test", "debug-stage-journal", "gfx"
+    "sys", "tasks", "spawn", "kill", "snapshot", "panic-test", "debug-stage-journal", "gfx", "doom"
 };
 
 static void prompt(void) {
@@ -47,7 +48,7 @@ static void write_help(const char *topic) {
                   "           env sethost health metrics proc clock consoles switchtty\n"
                   "           services restart security power reboot shutdown snapshot\n"
                   "  memory   boot mem alloc paging heap\n"
-                  "  graphics gfx (640x400 test pattern) | gfx info\n"
+                  "  graphics gfx (640x400 test pattern) | gfx info | doom\n"
                   "  files    fs ls cat edit append write rm\n"
                   "  disk     disk fsck ata ata-read ata-write save load appenddisk\n"
                   "           sync deldisk format install install-run debug-stage-journal\n"
@@ -77,7 +78,8 @@ static void write_help(const char *topic) {
     } else if (!strcmp(topic, "graphics")) {
         vga_write("Graphics (Bochs VBE display: QEMU std-vga, v86)\n"
                   "  gfx       Switch to 640x400x32, draw a test pattern; any key returns\n"
-                  "  gfx info  Display device, framebuffer and mode availability\n");
+                  "  gfx info  Display device, framebuffer and mode availability\n"
+                  "  doom      Play Doom (Freedoom); once per boot\n");
     } else if (!strcmp(topic, "files")) {
         vga_write("RAM files (changes are not persistent until saved or synced)\n"
                   "  fs                     Filesystem status\n"
@@ -251,6 +253,7 @@ void shell_execute(const char *cmd) {
     else if (!strcmp(cmd, "heap")) heap_render();
     else if (!strcmp(cmd, "gfx")) gfx_command();
     else if (!strcmp(cmd, "gfx info")) gfx_render_info();
+    else if (!strcmp(cmd, "doom")) doom_command();
     else if (!strcmp(cmd, "fs")) ramfs_render();
     else if (!strcmp(cmd, "ls")) cmd_ls("/");
     else if ((arg = arg_after(cmd, "ls "))) cmd_ls(arg);

@@ -47,6 +47,8 @@ jobs:
         run: ./tools/round2-v86-test.sh --report /tmp/check-web/round2-v86.json
       - name: Paging boundaries, MMIO exhaustion and rollback guests in v86
         run: node tools/round2-paging-v86-test.mjs --assets "$PWD/web/dist" --playwright "$PWD/web/node_modules/playwright-core" --keep
+      - name: Runtime, libc, clock and read-only slave WAD guests in v86
+        run: bash tools/round3-v86-test.sh --assets "$PWD/web/dist" --playwright "$PWD/web/node_modules/playwright-core" --report /tmp/check-web/round3-v86.json
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
