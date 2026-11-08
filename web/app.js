@@ -1,9 +1,12 @@
 import { V86 } from './libv86.mjs';
 
 const screen = document.getElementById('screen');
+const canvas = screen.querySelector('canvas');
 const status = document.getElementById('status');
 const overlay = document.getElementById('overlay');
 const input = document.getElementById('type-input');
+const readout = document.getElementById('readout');
+const textToggle = document.getElementById('text-toggle');
 
 const emulator = new V86({
   wasm_path: 'v86.wasm',
@@ -35,8 +38,76 @@ emulator.add_listener('download-progress', event => {
 emulator.add_listener('emulator-started', () => {
   overlay.hidden = true;
   setStatus('Running. Click the screen and type.', 'running');
+  requestAnimationFrame(updateReadout);
 });
 emulator.add_listener('emulator-stopped', () => setStatus('Stopped', 'stopped'));
+
+// Scale the screen by whole device pixels so the VGA font stays sharp. Below 1:1 (phones) it
+// scales smoothly instead, and the text view below the screen does the reading.
+function fitScreen() {
+  const width = canvas.width || 720;
+  const height = canvas.height || 400;
+  const full = document.fullscreenElement === screen;
+  const ratio = window.devicePixelRatio || 1;
+  const availableWidth = full ? window.innerWidth : screen.parentElement.clientWidth - 4;
+  const availableHeight = full ? window.innerHeight : Infinity;
+  const fit = Math.min(availableWidth / width, availableHeight / height);
+  const wholeDevicePixels = Math.floor(fit * ratio);
+  const scale = wholeDevicePixels >= 1 ? wholeDevicePixels / ratio : fit;
+  canvas.style.width = `${Math.floor(width * scale)}px`;
+  canvas.style.height = `${Math.floor(height * scale)}px`;
+  canvas.style.imageRendering = wholeDevicePixels >= 1 ? 'pixelated' : 'auto';
+}
+emulator.add_listener('screen-set-size', () => requestAnimationFrame(fitScreen));
+new ResizeObserver(fitScreen).observe(screen.parentElement);
+document.addEventListener('fullscreenchange', fitScreen);
+window.addEventListener('resize', fitScreen);
+
+// The screen as text: the 80x25 text buffer, with rows that wrapped at column 80 joined back
+// into one line, so it reflows to any width and can be selected and copied.
+function screenText() {
+  // The screen adapter appears once the emulator has initialised, after this script first runs.
+  if (!emulator.screen_adapter) return '';
+  const rows = emulator.screen_adapter.get_text_screen();
+  const lines = [];
+  let continues = false;
+  for (const row of rows) {
+    const trimmed = row.replace(/\s+$/, '');
+    if (continues) lines[lines.length - 1] += trimmed;
+    else lines.push(trimmed);
+    continues = row.length >= 80 && !/\s$/.test(row);
+  }
+  while (lines.length && lines[lines.length - 1] === '') lines.pop();
+  return lines.join('\n');
+}
+
+let readoutQueued = false;
+function updateReadout() {
+  readoutQueued = false;
+  if (readout.hidden) return;
+  const atBottom = readout.scrollTop + readout.clientHeight >= readout.scrollHeight - 4;
+  readout.textContent = screenText();
+  if (atBottom) readout.scrollTop = readout.scrollHeight;
+}
+emulator.add_listener('screen-put-char', () => {
+  if (!readoutQueued && !readout.hidden) {
+    readoutQueued = true;
+    requestAnimationFrame(updateReadout);
+  }
+});
+
+function showReadout(show) {
+  readout.hidden = !show;
+  textToggle.setAttribute('aria-expanded', String(show));
+  textToggle.textContent = show ? 'Hide text' : 'Show as text';
+  if (show) {
+    updateReadout();
+    readout.scrollTop = readout.scrollHeight;
+  }
+}
+// Phones can't read 80 columns at their width, so they get the text view from the start.
+showReadout(window.matchMedia('(max-width: 760px)').matches);
+textToggle.addEventListener('click', () => showReadout(readout.hidden));
 
 // Keys reach the machine wherever focus is, except in text fields. Focus goes back to the
 // screen after a button press, so Enter or Space can't press the same button again.

@@ -30,10 +30,19 @@
     <div class="machine-bar">
       <p id="status" class="status" role="status">Loading the emulator</p>
       <div class="controls">
+        <button type="button" id="text-toggle" aria-controls="readout" aria-expanded="false">Show as text</button>
         <button type="button" id="restart">Restart</button>
         <button type="button" id="fullscreen">Full screen</button>
       </div>
     </div>
+    <pre id="readout" class="readout" tabindex="0" aria-label="The screen as text" hidden></pre>
+    <form id="type-form" class="type-form">
+      <label for="type-input">Type a line and send it to the machine</label>
+      <div class="type-row">
+        <input id="type-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send">
+        <button type="submit">Send</button>
+      </div>
+    </form>
   </section>
 
   <section class="try" aria-labelledby="try-title">
@@ -49,13 +58,6 @@
       <button type="button" data-cmd="health">health</button>
       <button type="button" data-cmd="ls">ls</button>
     </div>
-    <form id="type-form" class="type-form">
-      <label for="type-input">No keyboard? Type a line here</label>
-      <div class="type-row">
-        <input id="type-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send">
-        <button type="submit">Send</button>
-      </div>
-    </form>
   </section>
 
   <section class="about" aria-labelledby="about-title">

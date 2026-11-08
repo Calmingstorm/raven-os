@@ -46,7 +46,8 @@ code { font-family: var(--mono); font-size: .92em; color: var(--green); }
   background: var(--sheen);
 }
 .screen {
-  display: block;
+  display: grid;
+  place-items: center;
   border-radius: 8px;
   background: #000;
   overflow: hidden;
@@ -54,10 +55,26 @@ code { font-family: var(--mono); font-size: .92em; color: var(--green); }
   line-height: 0;
 }
 .screen:focus-visible { box-shadow: 0 0 0 2px var(--cyan); }
-.screen canvas { display: block; width: 100%; height: auto; }
+/* app.js sets the canvas size: whole device pixels when the screen fits at 1:1 or more. */
+.screen canvas { display: block; max-width: 100%; }
 .screen .textmode { white-space: pre; font: 16px/16px var(--mono); line-height: 16px; }
-.screen:fullscreen { display: grid; place-items: center; border-radius: 0; }
-.screen:fullscreen canvas { width: auto; height: 100vh; max-width: 100vw; object-fit: contain; image-rendering: pixelated; }
+.screen:fullscreen { border-radius: 0; }
+
+.readout {
+  margin: 12px 0 0;
+  max-height: 60vh;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #000;
+  color: var(--text);
+  font: 13px/1.45 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.readout[hidden] { display: none; }
+.readout:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
 .overlay {
   position: absolute;
@@ -116,7 +133,7 @@ h2 { margin: 0 0 6px; font-size: 1.15rem; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chips button { font-family: var(--mono); color: var(--green); }
 
-.type-form { margin-top: 20px; }
+.type-form { margin-top: 16px; }
 .type-form label { display: block; margin-bottom: 6px; color: var(--muted); font-size: .95rem; }
 .type-row { display: flex; gap: 8px; }
 .type-row input {

@@ -106,6 +106,21 @@ build/ravenos.kernel
 build/ravenos.iso
 ```
 
+## In the browser
+
+https://ravenos.calmingstorm.net runs the kernel in [v86](https://github.com/copy/v86), an x86 emulator compiled
+to WebAssembly. v86 boots `build/ravenos.kernel` directly as a Multiboot image, without GRUB or a disk image.
+
+```bash
+./tools/build-web.sh          # web/dist: page, emulator, BIOS files, kernel, pre-gzipped copies
+node tools/check-web.mjs      # boots web/dist in headless Chrome at desktop and phone widths
+./tools/deploy-web.sh         # publishes a release to server-2 (needs root SSH to 192.168.1.41)
+```
+
+`tools/check-web.mjs` takes `--url <site>` to check a deployed copy, and `--screenshots <dir>` to save screenshots.
+Hosting: `deploy/nginx-ravenos.conf` (server-2) and `deploy/apache-ravenos.calmingstorm.net.conf` (.13, TLS and
+proxy).
+
 ## Design direction
 
 Near-term viability milestones:
