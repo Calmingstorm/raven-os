@@ -55,6 +55,18 @@ export const cursor = page => page.evaluate(() => {
 });
 const screenText = async page => (await screenRows(page)).join('\n');
 
+// Wait until the guest has stopped printing: two identical screens 300 ms apart.
+async function settle(page) {
+  let previous = await screenText(page);
+  for (let i = 0; i < 30; i++) {
+    await page.waitForTimeout(300);
+    const now = await screenText(page);
+    if (now === previous) return now;
+    previous = now;
+  }
+  assert.fail('the screen never stopped changing');
+}
+
 // Record clicks, text the page sends, and scancodes reaching the emulated keyboard, so a failed wait
 // can say where input stopped.
 const instrument = page => page.evaluate(() => {
@@ -127,6 +139,29 @@ try {
   const at = await cursor(page);
   assert.ok(Number.isInteger(at.row) && Number.isInteger(at.col), 'the cursor helper reads the VGA cursor');
 
+  // Nothing below the screen moves when focus enters or leaves it: CI's fonts once wrapped the
+  // status line, the buttons shifted mid-click, and the click landed on the page instead.
+  // The box is read only once layout has settled: a resize rescales the screen a frame or two later.
+  const aboutBox = async () => {
+    let previous = null;
+    for (let i = 0; i < 20; i++) {
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      const box = await page.getByRole('button', { name: 'about', exact: true }).boundingBox();
+      if (previous && JSON.stringify(box) === JSON.stringify(previous)) return box;
+      previous = box;
+    }
+    assert.fail('the layout never settled');
+  };
+  for (const width of [1280, 600, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.focus('#screen');
+    const inside = await aboutBox();
+    await page.focus('#restart');
+    assert.deepEqual(await aboutBox(), inside, `at ${width} px the buttons move when focus leaves the screen`);
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.focus('#screen');
+
   await page.getByRole('button', { name: 'about', exact: true }).click();
   await waitForScreen(page, 'inspectable machine first');
   await page.fill('#type-input', 'timeline');
@@ -136,13 +171,13 @@ try {
   await page.keyboard.type('mem\n');
   await waitForScreen(page, 'physical memory manager');
 
-  // A button replaces half-typed input instead of being appended to it.
-  await page.keyboard.type('abo');
+  // A button replaces half-typed input, trailing spaces included, instead of being appended to it.
+  await page.keyboard.type('abo        ');
   await page.getByRole('button', { name: 'tasks', exact: true }).click();
-  await page.waitForTimeout(800);
+  await waitForScreen(page, 'preemptive-accounting');
   const afterButton = await screenText(page);
-  assert.ok(!afterButton.includes('abotasks') && !afterButton.includes('unknown command'),
-    `typing "abo" then pressing the tasks button ran something else:\n${afterButton}`);
+  assert.ok(!afterButton.includes('unknown command'),
+    `typing "abo" and spaces, then pressing the tasks button, ran something else:\n${afterButton}`);
   assert.ok(afterButton.split('\n').some(row => row.trimEnd() === 'raven> tasks'), 'the tasks button ran exactly "tasks"');
 
   // Keys reach the guest only while the screen has focus; Shift+Esc hands them back; Tab stays inside.
@@ -151,6 +186,15 @@ try {
   assert.equal(await page.evaluate(() => document.activeElement.id), 'screen', 'Tab inside the screen goes to the guest');
   await page.keyboard.press('Shift+Escape');
   assert.notEqual(await page.evaluate(() => document.activeElement.id), 'screen', 'Shift+Esc leaves the screen');
+  // The Shift of Shift+Esc is released in the guest too: commands afterwards aren't typed in capitals.
+  await page.getByRole('button', { name: 'about', exact: true }).click();
+  await page.waitForTimeout(800);
+  const afterLeaving = await screenText(page);
+  assert.ok(!afterLeaving.includes('ABOUT'), `Shift stayed down in the guest after Shift+Esc:\n${afterLeaving}`);
+  await page.keyboard.type('mem\n');
+  await waitForScreen(page, 'raven> mem');
+  await settle(page);
+  await page.keyboard.press('Shift+Escape');
   const before = await screenText(page);
   await page.focus('#restart');
   await page.keyboard.type('zz');

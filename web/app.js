@@ -10,7 +10,7 @@ const input = document.getElementById('type-input');
 const readout = document.getElementById('readout');
 const textToggle = document.getElementById('text-toggle');
 
-const PROMPT = 'raven> ';
+const PROMPT = 'raven>';
 // Page load to the shell prompt. The prompt normally appears in under a second once the files are in.
 const BOOT_TIMEOUT_MS = 30000;
 // The shell's input line holds 159 characters; Backspace on an empty line does nothing.
@@ -71,7 +71,7 @@ emulator.add_listener('emulator-started', () => {
 });
 
 function checkBooted() {
-  if (booted || failed || !screenText().includes(PROMPT.trim())) return;
+  if (booted || failed || !screenText().includes(PROMPT)) return;
   booted = true;
   clearTimeout(bootTimer);
   overlay.hidden = true;
@@ -167,6 +167,10 @@ screen.addEventListener('focus', () => {
   updateStatus();
 });
 screen.addEventListener('blur', () => {
+  // v86 releases every key it holds down in the guest when the window loses focus. Do the same when
+  // the screen does, or a key held while leaving (the Shift of Shift+Esc) stays down in the guest:
+  // its release arrives after the keyboard is disabled.
+  window.dispatchEvent(new Event('blur'));
   emulator.keyboard_set_enabled(false);
   updateStatus();
 });
@@ -179,14 +183,8 @@ window.addEventListener('keydown', event => {
 }, true);
 
 // A command from a button or the line box replaces whatever is half-typed at the prompt rather
-// than being appended to it: erase the visible pending input first (plus a few for trailing
-// spaces, which the screen can't show), then type the command.
-function pendingInput() {
-  const lines = screenText().split('\n');
-  const last = lines[lines.length - 1] || '';
-  const at = last.lastIndexOf(PROMPT.trim());
-  return at === -1 ? '' : last.slice(at + PROMPT.length);
-}
+// than being appended to it. The screen can't show trailing spaces, so erase a whole line's worth:
+// Backspace on an empty line does nothing. (This becomes Ctrl+U once the shell's line editor has it.)
 
 // v86 drops simulated keys too while the keyboard is disabled, so enable it around the (synchronous)
 // send and then restore the focus rule.
@@ -197,8 +195,7 @@ function typeIntoGuest(text) {
 }
 
 function runCommand(command) {
-  const erase = Math.min(pendingInput().length + 4, MAX_INPUT);
-  typeIntoGuest('\b'.repeat(erase) + command + '\n');
+  typeIntoGuest('\b'.repeat(MAX_INPUT) + command + '\n');
 }
 
 document.getElementById('chips').addEventListener('click', event => {

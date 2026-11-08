@@ -118,6 +118,8 @@ node tools/check-web.mjs      # boots web/dist in headless Chrome at desktop and
 ```
 
 `tools/check-web.mjs` takes `--url <site>` to check a deployed copy, and `--screenshots <dir>` to save screenshots.
+`tools/verify-web.mjs` checks a build, or a live site, against the build's `build.json` (sha256 of every file).
+`deploy-web.sh` runs both after switching releases and switches back if either fails.
 Hosting: `deploy/nginx-ravenos.conf` (server-2) and `deploy/apache-ravenos.calmingstorm.net.conf` (.13, TLS and
 proxy).
 

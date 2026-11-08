@@ -103,7 +103,18 @@ code { font-family: var(--mono); font-size: .92em; color: var(--green); }
   gap: 8px 16px;
   margin-top: 12px;
 }
-.status { margin: 0; color: var(--muted); font-size: .95rem; }
+/* One line that never wraps the controls: if focus changed the status's length and that moved the
+   buttons below, a click in progress would land somewhere else. */
+.status {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  font-size: .95rem;
+}
 .status::before {
   content: "";
   display: inline-block;
@@ -162,6 +173,7 @@ footer p { margin: 0; color: var(--muted); font-size: .9rem; }
 .source-index pre { white-space: pre-wrap; color: var(--muted); font: 13px/1.5 var(--mono); }
 
 @media (max-width: 520px) {
+  .status { flex-basis: 100%; }
   .masthead { padding-top: 24px; }
   .masthead h1 { font-size: 2rem; }
 }
