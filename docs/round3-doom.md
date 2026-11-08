@@ -46,7 +46,9 @@ The page reads the disk lazily through v86 in fixed 256 KiB chunks. v86's chunke
 that runs past the end of the file, which is why the disk is padded. The runtime never shows the padding: Doom sees
 exactly the 28,795,076-byte WAD.
 
-On the web the disk is `freedoom1-<first 16 hex digits of its SHA-256>.img`. Its name and size are in
+On the web the disk is `freedoom1-<first 16 hex digits of its SHA-256>.img`. v86 attaches a primary slave only
+beside a primary master, so the page also gives it a blank 64-sector master. That is smaller than RavenFS needs, so
+RavenFS keeps its RAM backend in the browser, as before, and nothing persists across reloads. Its name and size are in
 `build.json`. nginx lets browsers keep it for good, and doesn't gzip it, because range requests need the raw bytes.
 v86 reads one chunk while the page boots. The rest loads only when Doom runs: about 57 chunks before the first
 frame, and a few more for each new level.
