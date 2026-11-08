@@ -24,7 +24,7 @@ done
 "${CC:-cc}" -m32 "${objs[@]}" "$tmp/test.o" -Wl,--wrap=exit,--wrap=abort,--wrap=fopen,--wrap=fread -o "$tmp/doom-host-test"
 
 # Doom's startup log goes to stdout; keep it out of the way unless a run fails.
-for mode in play nographics badwad; do
+for mode in play nographics badwad beginfails errorafter; do
   wad="$tmp/freedoom1.wad"
   [ "$mode" != badwad ] || wad="$tmp/bad.wad"
   args=("$mode" "$wad")

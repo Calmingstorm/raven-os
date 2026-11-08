@@ -9,6 +9,8 @@
  *   doom-host-test play <logical wad> [screenshot dir]   title, new game, move, fire, try to save, quit
  *   doom-host-test nographics <logical wad>              graphics unavailable: refused before anything loads
  *   doom-host-test badwad <file>                         a file that isn't a WAD: Doom's error ends the session
+ *   doom-host-test beginfails <logical wad>              the probe passes but the framebuffer won't open
+ *   doom-host-test errorafter <logical wad>              a Doom error once graphics have begun
  */
 #include <errno.h>
 #include <setjmp.h>
@@ -19,6 +21,7 @@
 #include "doomgeneric.h"
 #include "doomkeys.h"
 #include "doomstat.h"
+#include "i_system.h"
 #include "d_event.h"
 #include "raven_doom_bridge.h"
 #include "raven_doom_runtime.h"
@@ -102,7 +105,7 @@ void raven_sleep_ms(uint32_t ms) {
 #define STRIDE 704u
 #define SENTINEL 0xdeadbeefu
 static uint32_t screen[DOOMGENERIC_RESY][STRIDE];
-static int video_available = 1;
+static int video_available = 1, begin_fails;
 static int checks, begins, ends;
 static unsigned chunks_at_begin;
 
@@ -113,9 +116,9 @@ int raven_doom_video_check(const char **why) {
 }
 
 int raven_doom_video_begin(volatile uint32_t **framebuffer, uint32_t *stride_pixels, const char **why) {
-    (void)why;
     CHECK(video_available);
     begins++;
+    if (begin_fails) { *why = "the framebuffer could not be mapped (test)"; return -1; }
     chunks_at_begin = chunks_read();
     for (unsigned y = 0; y < DOOMGENERIC_RESY; y++)
         for (unsigned x = 0; x < STRIDE; x++) screen[y][x] = x < DOOMGENERIC_RESX ? 0 : SENTINEL;
@@ -244,6 +247,12 @@ static const Check play_steps[] = {
     { 16500, save_refused }, { 18300, quit_asked },
 };
 
+static void error_after_title(void) {
+    CHECK(begins == 1 && distinct_colors() >= 32);
+    I_Error("test: an engine error after graphics began (%d)", 7);
+}
+static const Check error_steps[] = { { 2500, error_after_title } };
+
 static char *doom_argv[] = { "doom", "-iwad", RAVEN_WAD_PATH, NULL };
 
 static void run(void) {
@@ -278,6 +287,18 @@ int main(int argc, char **argv) {
         CHECK(ended == RAVEN_DOOM_ABORTED && !strcmp(abort_reason, "no graphics here (test)"));
         CHECK(checks == 1 && begins == 0 && chunks_read() == 0);
         printf("doom-host-test nographics: refused before reading the disk: %s\n", abort_reason);
+    } else if (!strcmp(argv[1], "beginfails")) {
+        begin_fails = 1;
+        run();
+        CHECK(ended == RAVEN_DOOM_ABORTED && !strcmp(abort_reason, "the framebuffer could not be mapped (test)"));
+        CHECK(checks == 1 && begins == 1 && ends == 2 && chunks_read() > 0);
+        printf("doom-host-test beginfails: the probe passed, the framebuffer didn't open, the session ended: %s\n", abort_reason);
+    } else if (!strcmp(argv[1], "errorafter")) {
+        steps = error_steps; step_count = sizeof error_steps / sizeof *error_steps;
+        run();
+        CHECK(ended == RAVEN_DOOM_ABORTED && strstr(abort_reason, "an engine error after graphics began (7)"));
+        CHECK(next_step == step_count && begins == 1 && ends == 2);
+        printf("doom-host-test errorafter: an error after graphics began ended the session and the gfx session: %s\n", abort_reason);
     } else if (!strcmp(argv[1], "badwad")) {
         run();
         CHECK(ended == RAVEN_DOOM_ABORTED && strstr(abort_reason, "doesn't have IWAD or PWAD id"));
