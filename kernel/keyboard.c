@@ -100,7 +100,11 @@ void keyboard_feed_scancode(uint8_t byte) {
         case 0x50: code = KEY_DOWN; break;
         case 0x51: code = KEY_PAGEDOWN; break;
         case 0x53: code = KEY_DELETE; break;
-        default: return; /* includes both halves of PrintScreen */
+        /* PrintScreen's two halves (the second is the fake Shift some keyboards also send around other extended
+         * keys) aren't keys. Every other extended key is queued, KEY_NONE when the shell has no use for it
+         * (Insert, the Windows keys), so raw consumers like Doom still see it. */
+        case 0x2a: case 0x37: return;
+        default: code = KEY_NONE; break;
         }
     } else {
         switch (sc) {
@@ -116,7 +120,13 @@ void keyboard_feed_scancode(uint8_t byte) {
         case 0x0f: code = KEY_TAB; break;
         case 0x1c: code = KEY_ENTER; break;
         default:
-            if (!plain[sc]) return;
+            /* Keys with no character (F1-F12, NumLock, the keypad) queue as KEY_NONE for raw consumers. Bytes past
+             * the standard keys are controller replies and overruns, not keys. */
+            if (!plain[sc]) {
+                if (sc == 0 || sc > 0x58) return;
+                code = KEY_NONE;
+                break;
+            }
             shift = !!(left_shift || right_shift);
             if (plain[sc] >= 'a' && plain[sc] <= 'z') shift ^= caps_lock;
             ascii = shift ? shifted[sc] : plain[sc];

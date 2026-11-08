@@ -94,6 +94,16 @@ int main(void) {
                                   0xe1,0x1d,0x45,0xe1,0x9d,0xc5};
       for (i=0; i<sizeof(ignored); ++i) feed(ignored[i]); }
     empty(); port_byte=0x1e; keyboard_on_irq(); expect(0x1e,KEY_CHARACTER,'a',0,1);
+    /* Keys the shell has no use for still reach raw consumers (Doom's F10, Insert), as KEY_NONE. Controller
+     * replies and overrun bytes are not keys. */
+    { static const uint8_t fkeys[] = {0x3b,0x44,0x45,0x47,0x57,0x58};
+      for (i=0; i<sizeof(fkeys); ++i) {
+          feed(fkeys[i]); feed(fkeys[i] | 0x80);
+          expect(fkeys[i],KEY_NONE,0,0,1); expect(fkeys[i],KEY_NONE,0,0,0);
+      } }
+    ext(0x52); ext(0xd2); expect(0xe052,KEY_NONE,0,0,1); expect(0xe052,KEY_NONE,0,0,0);
+    ext(0x5b); ext(0xdb); expect(0xe05b,KEY_NONE,0,0,1); expect(0xe05b,KEY_NONE,0,0,0);
+    feed(0x00); feed(0xfa); feed(0xfe); feed(0xee); feed(0xff); empty();
     keyboard_init();
     CHECK(keyboard_dropped_events() == 0);
     burst_line(150,0);
