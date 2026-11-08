@@ -1,0 +1,179 @@
+:root {
+  color-scheme: dark;
+  --ink: #0e0f13;
+  --panel: #16181e;
+  --line: #2b2f39;
+  --text: #e4e1d8;
+  --muted: #9b9da6;
+  --cyan: #55ffff;
+  --green: #55ff55;
+  --amber: #ffb000;
+  --sheen: linear-gradient(135deg, #1d3346 0%, #2e2046 48%, #133836 100%);
+  --mono: ui-monospace, "DejaVu Sans Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--text);
+  font: 16px/1.55 var(--sans);
+}
+
+a { color: var(--cyan); }
+code { font-family: var(--mono); font-size: .92em; color: var(--green); }
+
+.masthead, main, footer {
+  width: min(100% - 32px, 752px);
+  margin-inline: auto;
+}
+
+.masthead { padding: 40px 0 20px; }
+.masthead h1 {
+  margin: 0;
+  font: 700 2.4rem/1.1 var(--mono);
+  letter-spacing: -.02em;
+}
+.lede { margin: 10px 0 0; max-width: 60ch; color: var(--muted); }
+
+/* The machine: one iridescent frame, like a raven's feather, around the VGA screen. */
+.bezel {
+  position: relative;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--sheen);
+}
+.screen {
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #000;
+  overflow: hidden;
+  outline: none;
+  line-height: 0;
+}
+.screen:focus-visible { box-shadow: 0 0 0 2px var(--cyan); }
+/* app.js sets the canvas size: whole device pixels when the screen fits at 1:1 or more. */
+.screen canvas { display: block; max-width: 100%; }
+.screen .textmode { white-space: pre; font: 16px/16px var(--mono); line-height: 16px; }
+.screen:fullscreen { border-radius: 0; }
+
+.readout {
+  margin: 12px 0 0;
+  max-height: 60vh;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #000;
+  color: var(--text);
+  font: 13px/1.45 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.readout[hidden] { display: none; }
+.readout:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+.overlay {
+  position: absolute;
+  inset: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 8px;
+  background: #000;
+  color: var(--muted);
+  font-family: var(--mono);
+  text-align: center;
+}
+.overlay p { margin: 0; max-width: 48ch; }
+.overlay[data-state="error"] p { color: var(--amber); }
+.overlay[hidden], .overlay button[hidden] { display: none; }
+
+.machine-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-top: 12px;
+}
+/* One line that never wraps the controls: if focus changed the status's length and that moved the
+   buttons below, a click in progress would land somewhere else. */
+.status {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  font-size: .95rem;
+}
+.status::before {
+  content: "";
+  display: inline-block;
+  width: .55em;
+  height: .55em;
+  margin-right: .5em;
+  border-radius: 50%;
+  background: var(--amber);
+  vertical-align: .08em;
+}
+.status[data-state="running"]::before { background: var(--green); }
+.status[data-state="stopped"]::before { background: #ff5555; }
+
+.controls { display: flex; gap: 8px; }
+
+button {
+  font: inherit;
+  font-size: .95rem;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+button:hover { border-color: #444a58; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+.try, .about { margin-top: 40px; }
+h2 { margin: 0 0 6px; font-size: 1.15rem; }
+.try > p, .about p { margin: 0 0 12px; color: var(--muted); max-width: 65ch; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips button { font-family: var(--mono); color: var(--green); }
+
+.type-form { margin-top: 16px; }
+.type-form label { display: block; margin-bottom: 6px; color: var(--muted); font-size: .95rem; }
+.type-row { display: flex; gap: 8px; }
+.type-row input {
+  flex: 1;
+  min-width: 0;
+  font: 1rem var(--mono);
+  color: var(--text);
+  background: #000;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+footer { margin-top: 48px; padding: 20px 0 40px; border-top: 1px solid var(--line); }
+footer p { margin: 0; color: var(--muted); font-size: .9rem; }
+
+.noscript { width: min(100% - 32px, 752px); margin: 24px auto; color: var(--amber); }
+
+.source-index { width: min(100% - 32px, 752px); margin: 40px auto; }
+.source-index pre { white-space: pre-wrap; color: var(--muted); font: 13px/1.5 var(--mono); }
+
+@media (max-width: 520px) {
+  .status { flex-basis: 100%; }
+  .masthead { padding-top: 24px; }
+  .masthead h1 { font-size: 2rem; }
+}

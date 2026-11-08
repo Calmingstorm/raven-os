@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RavenOS</title>
+<meta name="description" content="RavenOS is a tiny research operating system that keeps a timeline of everything it does. It boots right here, in your browser.">
+<meta property="og:title" content="RavenOS">
+<meta property="og:description" content="A tiny research operating system that boots in your browser.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0e0f13">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="masthead">
+  <h1>RavenOS</h1>
+  <p class="lede">A tiny research operating system that keeps a timeline of everything it does. It is running below, in your browser.</p>
+</header>
+
+<main>
+  <section class="machine" aria-label="RavenOS machine">
+    <div class="bezel">
+      <div id="screen" class="screen" tabindex="0" aria-label="RavenOS console. Keys go to RavenOS while it has focus; Shift+Escape leaves.">
+        <div class="textmode"></div>
+        <canvas></canvas>
+      </div>
+      <div id="overlay" class="overlay">
+        <p id="overlay-text">Starting the machine</p>
+        <button type="button" id="retry" hidden>Retry</button>
+      </div>
+    </div>
+    <div class="machine-bar">
+      <p id="status" class="status" role="status">Loading the emulator</p>
+      <div class="controls">
+        <button type="button" id="text-toggle" aria-controls="readout" aria-expanded="false">Show as text</button>
+        <button type="button" id="restart">Restart</button>
+        <button type="button" id="fullscreen">Full screen</button>
+      </div>
+    </div>
+    <pre id="readout" class="readout" tabindex="0" aria-label="The screen as text" hidden></pre>
+    <form id="type-form" class="type-form">
+      <label for="type-input">Type a line and send it to the machine</label>
+      <div class="type-row">
+        <input id="type-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send">
+        <button type="submit">Send</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="try" aria-labelledby="try-title">
+    <h2 id="try-title">Try a command</h2>
+    <p>Click the screen and type, or tap a command to run it. Keys go to RavenOS while the screen has focus; Shift+Esc gives them back to the page.</p>
+    <div id="chips" class="chips">
+      <button type="button" data-cmd="help">help</button>
+      <button type="button" data-cmd="about">about</button>
+      <button type="button" data-cmd="timeline">timeline</button>
+      <button type="button" data-cmd="mem">mem</button>
+      <button type="button" data-cmd="tasks">tasks</button>
+      <button type="button" data-cmd="services">services</button>
+      <button type="button" data-cmd="health">health</button>
+      <button type="button" data-cmd="ls">ls</button>
+    </div>
+  </section>
+
+  <section class="about" aria-labelledby="about-title">
+    <h2 id="about-title">What you are looking at</h2>
+    <p>RavenOS is a 32-bit x86 kernel written from scratch. Every boot step, driver start and command you run is written to its wyrd timeline. Type <code>timeline</code> to read it.</p>
+    <p>Your browser is emulating a whole PC with v86, an x86 emulator compiled to WebAssembly. Nothing is installed, and closing the tab turns the machine off.</p>
+  </section>
+</main>
+
+<footer>
+  <p>RavenOS source: <a href="https://github.com/Calmingstorm/raven-os">github.com/Calmingstorm/raven-os</a>.</p>
+  <p>Runs on <a href="https://github.com/copy/v86">v86</a> (<a href="licenses/v86-LICENSE.txt">BSD-2-Clause</a>) with <a href="https://www.seabios.org/">SeaBIOS</a> 1.16.2 (<a href="licenses/LGPL-3.0.txt">LGPL-3.0</a>, which extends the <a href="licenses/GPL-3.0.txt">GPL-3.0</a>; <a href="source/bios/">source, configuration and build steps</a>).</p>
+</footer>
+
+<noscript><p class="noscript">RavenOS runs in an emulator, so this page needs JavaScript.</p></noscript>
+<script type="module" src="app.js"></script>
+</body>
+</html>

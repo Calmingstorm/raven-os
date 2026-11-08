@@ -106,6 +106,32 @@ build/ravenos.kernel
 build/ravenos.iso
 ```
 
+## In the browser
+
+https://ravenos.calmingstorm.net runs the kernel in [v86](https://github.com/copy/v86), an x86 emulator compiled
+to WebAssembly. v86 boots `build/ravenos.kernel` directly as a Multiboot image, without GRUB or a disk image.
+
+```bash
+./tools/build-web.sh          # web/dist: page, emulator, BIOS files, kernel, pre-gzipped copies
+node tools/check-web.mjs      # boots web/dist in headless Chrome at desktop and phone widths
+./tools/deploy-web.sh         # publishes a release to server-2 (needs root SSH to 192.168.1.41)
+```
+
+`tools/check-web.mjs` takes `--url <site>` to check a deployed copy, and `--screenshots <dir>` to save screenshots.
+`tools/verify-web.mjs` checks a build, or a live site, against the build's `build.json` (sha256 of every file).
+`deploy-web.sh` runs both after switching releases and switches back if either fails.
+Hosting: `deploy/nginx-ravenos.conf` (server-2) and `deploy/apache-ravenos.calmingstorm.net.conf` (.13, TLS and
+proxy).
+
+## Licenses
+
+- **v86** (BSD-2-Clause, `web/licenses/v86-LICENSE.txt`) is installed from npm at build time, pinned in
+  `web/package.json`.
+- **SeaBIOS** (`web/vendor/bios/*.bin`) is LGPL-3.0. Its corresponding source, the configuration and the build steps are
+  in `web/vendor/bios/source`; the site serves them at `/source/bios/`.
+- The first commit (`cdc80a9`) included build output by mistake, among it a GRUB rescue ISO (`build/ravenos.iso`); the
+  next commit removed it. GRUB is GPL-3.0-or-later, and its source is at https://www.gnu.org/software/grub/.
+
 ## Design direction
 
 Near-term viability milestones:
