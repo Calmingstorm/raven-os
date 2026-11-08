@@ -99,8 +99,9 @@ def play(qemu, kernel, directory):
         time.sleep(0.5)
         cleared_after, text_after = m.screen("cleared-after"), m.text()
         # The cleared screen lists the latest timeline events, which now include Doom's, so compare the rows whose
-        # text is the same: those must render pixel for pixel as before (font, palette and mode all restored).
-        same = [row for row in range(25) if text_before[row] == text_after[row]]
+        # text is the same: those must render pixel for pixel as before (font, palette and mode all restored). The
+        # prompt row is left out: the hardware cursor blinks there, so two screendumps can catch it differently.
+        same = [row for row in range(25) if text_before[row] == text_after[row] and not text_after[row].startswith("raven>")]
         check(len(same) >= 10, f"only {len(same)} console rows read the same before and after Doom")
         differing = sum(1 for row in same for y in range(row * 16, row * 16 + 16) for x in range(720)
                         if cleared_after[2][y][x] != cleared_before[2][y][x])
