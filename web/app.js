@@ -13,8 +13,6 @@ const textToggle = document.getElementById('text-toggle');
 const PROMPT = 'raven>';
 // Page load to the shell prompt. The prompt normally appears in under a second once the files are in.
 const BOOT_TIMEOUT_MS = 30000;
-// The shell's input line holds 159 characters; Backspace on an empty line does nothing.
-const MAX_INPUT = 159;
 
 const emulator = new V86({
   wasm_path: 'v86.wasm',
@@ -182,10 +180,6 @@ window.addEventListener('keydown', event => {
   }
 }, true);
 
-// A command from a button or the line box replaces whatever is half-typed at the prompt rather
-// than being appended to it. The screen can't show trailing spaces, so erase a whole line's worth:
-// Backspace on an empty line does nothing. (This becomes Ctrl+U once the shell's line editor has it.)
-
 // v86 drops simulated keys too while the keyboard is disabled, so enable it around the (synchronous)
 // send and then restore the focus rule.
 function typeIntoGuest(text) {
@@ -194,8 +188,13 @@ function typeIntoGuest(text) {
   emulator.keyboard_set_enabled(document.activeElement === screen);
 }
 
+// A command from a button or the line box replaces whatever is half-typed at the prompt rather than
+// being appended to it: Ctrl+U clears the shell's whole input line, wherever its cursor is. These are
+// Ctrl down, U down, U up, Ctrl up (scancode set 1), sent straight to the emulated keyboard.
+const CTRL_U = [0x1d, 0x16, 0x96, 0x9d];
 function runCommand(command) {
-  typeIntoGuest('\b'.repeat(MAX_INPUT) + command + '\n');
+  emulator.keyboard_send_scancodes(CTRL_U);
+  typeIntoGuest(command + '\n');
 }
 
 document.getElementById('chips').addEventListener('click', event => {
