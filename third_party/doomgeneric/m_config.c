@@ -1,3 +1,4 @@
+// Modified for RavenOS on 2026-11-08 (under #ifdef RAVENOS): no float config variables, and no configuration files or directory. See README.ravenos.md.
 //
 // Copyright(C) 1993-1996 Id Software, Inc.
 // Copyright(C) 1993-2008 Raven Software

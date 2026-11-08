@@ -1,4 +1,4 @@
-// Modified for RavenOS on 2026-11-08 (under #ifdef RAVENOS): no <math.h>. See README.ravenos.md.
+// Modified for RavenOS on 2026-11-08 (under #ifdef RAVENOS): no <math.h>, and the timedemo report has no frame rate (no floating point). See README.ravenos.md.
 //
 // Copyright(C) 1993-1996 Id Software, Inc.
 // Copyright(C) 2005-2014 Simon Howard

@@ -7,7 +7,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMMIT=e257a09527062bfb986b6e5e0780839b6cbd5b71
 VENDOR="$ROOT/third_party/doomgeneric"
-CHANGED=(g_game.c i_input.c i_system.c m_menu.c p_setup.c r_main.c v_video.c)
+CHANGED=(g_game.c i_input.c i_system.c i_video.c i_video.h m_config.c m_config.h m_menu.c p_setup.c r_main.c v_video.c)
 OURS=(COPYING README.upstream.md README.ravenos.md doomgeneric_ravenos.c raven_doom_input.c raven_doom_input.h)
 
 repo="$ROOT/build/cache/doomgeneric.git"

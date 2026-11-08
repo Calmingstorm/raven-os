@@ -32,5 +32,13 @@ upstream file differs.
 |---|---|
 | `i_system.c` | `I_Quit` ends the Doom session (`raven_doom_exit(0)`) instead of the process. `I_Error` ends it with the error message (`raven_doom_abort`), keeping the message in a static buffer because the abort unwinds the stack. The Zenity dialog helpers, which shell out with `system()`, are left out. |
 | `m_menu.c` | Load Game, Save Game, Quick Save and Quick Load show "saving and loading aren't available in ravenos" instead of opening the save slots. RavenOS gives Doom no writable storage. |
-| `g_game.c`, `i_input.c`, `p_setup.c`, `r_main.c` | No `<math.h>`: nothing compiled in these files uses it. (`r_main.c`'s table generation, which does, is upstream's `#if 0` code.) |
-| `v_video.c` | `fabs` is GCC's built-in, which compiles to an instruction; RavenOS has no maths library. |
+| `m_config.c`, `m_config.h` | No float config variables: the `DEFAULT_FLOAT` type, its two entries (`mouse_acceleration`, `libsamplerate_scale`), the float cases in loading and saving (`atof`, `%f`) and `M_GetFloatVariable`. No configuration files: no configuration directory (so no savegame directory either), and loading and saving the defaults return before any file I/O, so every variable keeps its built-in default. |
+| `i_video.c`, `i_video.h` | No `mouse_acceleration`, a float only the config file and the mouse-speed box used. |
+| `v_video.c` | No `<math.h>`, and `V_DrawMouseSpeedBox`, a `-testcontrols` diagnostic that works in floating point, is empty: RavenOS has no mouse. |
+| `g_game.c` | No `<math.h>`, and the `-timedemo` report gives its tic counts without the frame rate. |
+| `i_input.c`, `p_setup.c`, `r_main.c` | No `<math.h>`: nothing compiled in these files uses it. (`r_main.c`'s table generation, which does, is upstream's `#if 0` code.) |
+
+RavenOS has no floating point: the engine is compiled with `-msoft-float -mno-sse -mno-mmx`, and
+`tools/doom-audit.sh` proves no float helper, x87 instruction or float format string is left. `i_sound.c` still
+declares `extern float libsamplerate_scale`, but only code under `FEATURE_SOUND`, which RavenOS doesn't define,
+uses it.

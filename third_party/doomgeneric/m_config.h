@@ -1,3 +1,4 @@
+// Modified for RavenOS on 2026-11-08 (under #ifdef RAVENOS): no M_GetFloatVariable (RavenOS has no floating point). See README.ravenos.md.
 //
 // Copyright(C) 1993-1996 Id Software, Inc.
 // Copyright(C) 2005-2014 Simon Howard

@@ -1,4 +1,4 @@
-// Modified for RavenOS on 2026-11-08 (under #ifdef RAVENOS): fabs without <math.h>. See README.ravenos.md.
+// Modified for RavenOS on 2026-11-08 (under #ifdef RAVENOS): no <math.h>, and the -testcontrols mouse-speed box is empty (no mouse, no floating point). See README.ravenos.md.
 //
 // Copyright(C) 1993-1996 Id Software, Inc.
 // Copyright(C) 1993-2008 Raven Software

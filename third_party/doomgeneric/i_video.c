@@ -1,3 +1,4 @@
+// Modified for RavenOS on 2026-11-08 (under #ifdef RAVENOS): no mouse_acceleration (RavenOS has no floating point). See README.ravenos.md.
 // Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
