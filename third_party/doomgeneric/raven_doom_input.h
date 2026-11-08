@@ -1,7 +1,8 @@
 /* RavenOS key input for doomgeneric: physical key transitions in, Doom key events out.
  *
  * Keys are mapped by scancode, never by shifted ASCII, so a release always matches its press. Left and right
- * Shift, Ctrl and Alt are one Doom key each: pressed while either is down. Typematic repeats are ignored.
+ * Shift, Ctrl and Alt are one Doom key each: pressed while either is down, and X fires like Ctrl (macOS keeps
+ * Ctrl with the arrow keys). Typematic repeats are ignored.
  * Delivery is bounded: at most RAVEN_INPUT_PER_FRAME events between raven_input_frame() calls, because the
  * engine's event ring holds 64 entries and doesn't check for overflow. If the transition queue itself
  * overflows, ordering for that burst is given up and the engine is brought back to the keys actually held,

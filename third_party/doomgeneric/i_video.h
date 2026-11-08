@@ -149,7 +149,9 @@ struct color {
 extern char *video_driver;
 extern boolean screenvisible;
 
+#ifndef RAVENOS
 extern float mouse_acceleration;
+#endif
 extern int mouse_threshold;
 extern int vanilla_keyboard_mapping;
 extern boolean screensaver_mode;

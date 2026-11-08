@@ -54,7 +54,9 @@ typedef enum
     DEFAULT_INT,
     DEFAULT_INT_HEX,
     DEFAULT_STRING,
+#ifndef RAVENOS
     DEFAULT_FLOAT,
+#endif
     DEFAULT_KEY,
 } default_type_t;
 
@@ -101,8 +103,10 @@ typedef struct
     CONFIG_VARIABLE_GENERIC(name, DEFAULT_INT)
 #define CONFIG_VARIABLE_INT_HEX(name) \
     CONFIG_VARIABLE_GENERIC(name, DEFAULT_INT_HEX)
+#ifndef RAVENOS
 #define CONFIG_VARIABLE_FLOAT(name) \
     CONFIG_VARIABLE_GENERIC(name, DEFAULT_FLOAT)
+#endif
 #define CONFIG_VARIABLE_STRING(name) \
     CONFIG_VARIABLE_GENERIC(name, DEFAULT_STRING)
 
@@ -770,7 +774,9 @@ static default_t extra_defaults_list[] =
     // multiplied by this value.
     //
 
+#ifndef RAVENOS
     CONFIG_VARIABLE_FLOAT(mouse_acceleration),
+#endif
 
     //!
     // Mouse acceleration threshold.  When the speed of mouse movement
@@ -1103,7 +1109,9 @@ static default_t extra_defaults_list[] =
     // quieter the sound effects become, so it should be set as high as is
     // possible without clipping occurring.
 
+#ifndef RAVENOS
     CONFIG_VARIABLE_FLOAT(libsamplerate_scale),
+#endif
 
     //!
     // Full path to a Timidity configuration file to use for MIDI
@@ -1695,9 +1703,11 @@ static void SaveDefaultCollection(default_collection_t *collection)
 	        fprintf(f, "0x%x", * (int *) defaults[i].location);
                 break;
 
+#ifndef RAVENOS
             case DEFAULT_FLOAT:
                 fprintf(f, "%f", * (float *) defaults[i].location);
                 break;
+#endif
 
             case DEFAULT_STRING:
 	        fprintf(f,"\"%s\"", * (char **) (defaults[i].location));
@@ -1762,9 +1772,11 @@ static void SetVariable(default_t *def, char *value)
             * (int *) def->location = intparm;
             break;
 
+#ifndef RAVENOS
         case DEFAULT_FLOAT:
             * (float *) def->location = (float) atof(value);
             break;
+#endif
     }
 }
 
@@ -1845,6 +1857,10 @@ void M_SetConfigFilenames(char *main_config, char *extra_config)
 
 void M_SaveDefaults (void)
 {
+#ifdef RAVENOS
+    // RavenOS keeps no configuration files.
+    return;
+#endif
     SaveDefaultCollection(&doom_defaults);
     SaveDefaultCollection(&extra_defaults);
 }
@@ -1881,6 +1897,12 @@ void M_SaveDefaultsAlternate(char *main, char *extra)
 void M_LoadDefaults (void)
 {
     int i;
+
+#ifdef RAVENOS
+    // RavenOS keeps no configuration files: every variable keeps its built-in default.
+    (void)i;
+    return;
+#endif
  
     // check for a custom default file
 
@@ -2022,6 +2044,7 @@ const char *M_GetStrVariable(char *name)
     return *((const char **) variable->location);
 }
 
+#ifndef RAVENOS
 float M_GetFloatVariable(char *name)
 {
     default_t *variable;
@@ -2036,6 +2059,7 @@ float M_GetFloatVariable(char *name)
 
     return *((float *) variable->location);
 }
+#endif
 
 // Get the path to the default configuration dir to use, if NULL
 // is passed to M_SetConfigDir.
@@ -2058,6 +2082,12 @@ static char *GetDefaultConfigDir(void)
 
 void M_SetConfigDir(char *dir)
 {
+#ifdef RAVENOS
+    // RavenOS gives Doom no directories: no configuration directory, so no savegame directory either.
+    (void)dir;
+    configdir = "";
+    return;
+#endif
     // Use the directory that was passed, or find the default.
 
     if (dir != NULL)

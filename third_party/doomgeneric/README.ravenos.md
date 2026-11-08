@@ -17,7 +17,8 @@ The game data is Freedoom Phase 1 (`freedoom1.wad`, BSD-3-Clause), built into th
   - `doomgeneric_ravenos.c`: the platform layer. Video goes through the kernel's gfx session (640x400x32), keys
     through the key mapper, and time through the runtime clock.
   - `raven_doom_input.c` and `raven_doom_input.h`: the key mapper. It maps physical keys to Doom keys by scancode,
-    merges left and right modifiers, and limits how many events each frame delivers.
+    merges left and right modifiers, and limits how many events each frame delivers. Doom's default controls are
+    kept, and X also fires: macOS keeps Ctrl with the arrow keys for switching desktops.
   - The kernel side of the port lives outside this directory: `kernel/doom_bridge.c` and
     `kernel/raven_doom_bridge.h`.
 

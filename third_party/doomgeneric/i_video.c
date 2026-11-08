@@ -114,7 +114,9 @@ boolean screenvisible;
 // the values exceed the value of mouse_threshold, they are multiplied
 // by mouse_acceleration to increase the speed.
 
+#ifndef RAVENOS
 float mouse_acceleration = 2.0;
+#endif
 int mouse_threshold = 10;
 
 // Gamma correction level to use

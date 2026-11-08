@@ -16,7 +16,9 @@ static unsigned char scancode_down[256];   /* by (extended << 7 | scancode) */
 static unsigned char holders[256];         /* physical keys holding each Doom key */
 static unsigned char engine_down[256];     /* what the engine was last told */
 
-/* Scancode set 1, non-extended. Letters are lowercase: cheats and menu confirmations compare ASCII. */
+/* Scancode set 1, non-extended. Letters are lowercase: cheats and menu confirmations compare ASCII. X fires as
+ * well as Ctrl: macOS keeps Ctrl with the arrow keys for switching desktops, so a Mac can't fire while turning
+ * with Ctrl. No cheat or automap key uses x. */
 static const unsigned char plain_map[128] = {
     [0x01] = KEY_ESCAPE,
     [0x02] = '1', [0x03] = '2', [0x04] = '3', [0x05] = '4', [0x06] = '5',
@@ -28,7 +30,7 @@ static const unsigned char plain_map[128] = {
     [0x1e] = 'a', [0x1f] = 's', [0x20] = 'd', [0x21] = 'f', [0x22] = 'g',
     [0x23] = 'h', [0x24] = 'j', [0x25] = 'k', [0x26] = 'l', [0x27] = ';',
     [0x28] = '\'', [0x29] = '`', [0x2a] = KEY_RSHIFT, [0x2b] = '\\',
-    [0x2c] = 'z', [0x2d] = 'x', [0x2e] = 'c', [0x2f] = 'v', [0x30] = 'b',
+    [0x2c] = 'z', [0x2d] = KEY_FIRE, [0x2e] = 'c', [0x2f] = 'v', [0x30] = 'b',
     [0x31] = 'n', [0x32] = 'm', [0x33] = KEY_STRAFE_L, [0x34] = KEY_STRAFE_R, [0x35] = '/',
     [0x36] = KEY_RSHIFT, [0x38] = KEY_RALT, [0x39] = KEY_USE,
     [0x3b] = KEY_F1, [0x3c] = KEY_F2, [0x3d] = KEY_F3, [0x3e] = KEY_F4, [0x3f] = KEY_F5,

@@ -2254,19 +2254,28 @@ boolean G_CheckDemoStatus (void)
 	 
     if (timingdemo) 
     { 
+#ifndef RAVENOS
         float fps;
+#endif
         int realtics;
 
 	endtime = I_GetTime (); 
         realtics = endtime - starttime;
+#ifndef RAVENOS
         fps = ((float) gametic * TICRATE) / realtics;
+#endif
 
         // Prevent recursive calls
         timingdemo = false;
         demoplayback = false;
 
+#ifdef RAVENOS
+        // RavenOS has no floating point: the counts without the rate.
+	I_Error ("timed %i gametics in %i realtics", gametic, realtics);
+#else
 	I_Error ("timed %i gametics in %i realtics (%f fps)",
                  gametic, realtics, fps);
+#endif
     } 
 	 
     if (demoplayback) 

@@ -22,10 +22,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#ifdef RAVENOS
-// RavenOS has no libm. fabs is the only math function used here, and GCC expands it inline.
-#define fabs(x) __builtin_fabs(x)
-#else
+#ifndef RAVENOS
 #include <math.h>
 #endif
 
@@ -850,6 +847,12 @@ void V_ScreenShot(char *format)
 #define MOUSE_SPEED_BOX_HEIGHT 9
 
 void V_DrawMouseSpeedBox(int speed)
+#ifdef RAVENOS
+{
+    // RavenOS has no mouse, and this -testcontrols diagnostic works in floating point, which RavenOS doesn't use.
+    (void)speed;
+}
+#else
 {
     extern int usemouse;
     int bgcolor, bordercolor, red, black, white, yellow;
@@ -935,4 +938,5 @@ void V_DrawMouseSpeedBox(int speed)
     V_DrawVertLine(box_x + redline_x, box_y + 1,
                  MOUSE_SPEED_BOX_HEIGHT - 2, red);
 }
+#endif
 

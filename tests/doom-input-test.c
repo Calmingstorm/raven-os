@@ -34,6 +34,7 @@ int main(void) {
     CHECK(raven_input_doom_key(0x1c) == KEY_ENTER && raven_input_doom_key(0xe01c) == KEY_ENTER);
     CHECK(raven_input_doom_key(0x0f) == KEY_TAB);
     CHECK(raven_input_doom_key(0x1d) == KEY_FIRE && raven_input_doom_key(0xe01d) == KEY_FIRE);
+    CHECK(raven_input_doom_key(0x2d) == KEY_FIRE);   /* X: macOS keeps Ctrl+arrows */
     CHECK(raven_input_doom_key(0x39) == KEY_USE);
     CHECK(raven_input_doom_key(0x2a) == KEY_RSHIFT && raven_input_doom_key(0x36) == KEY_RSHIFT);
     CHECK(raven_input_doom_key(0x38) == KEY_RALT && raven_input_doom_key(0xe038) == KEY_RALT);
@@ -60,6 +61,11 @@ int main(void) {
     expect(0, KEY_RSHIFT); none();
     make(0x1d); make(0xe01d); brk(0xe01d); brk(0x1d);
     expect(1, KEY_FIRE); expect(0, KEY_FIRE); none();
+    /* Ctrl and X fire together the same way: fire stays down until the last of them is up. */
+    make(0x1d); make(0x2d); brk(0x1d);
+    expect(1, KEY_FIRE); none();
+    brk(0x2d);
+    expect(0, KEY_FIRE); none();
 
     /* Fire released while movement continues: each key's release is delivered on its own. */
     make(0xe048); make(0x1d); brk(0x1d);

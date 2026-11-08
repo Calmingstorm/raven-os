@@ -30,7 +30,9 @@ void M_BindVariable(char *name, void *variable);
 boolean M_SetVariable(char *name, char *value);
 int M_GetIntVariable(char *name);
 const char *M_GetStrVariable(char *name);
+#ifndef RAVENOS
 float M_GetFloatVariable(char *name);
+#endif
 void M_SetConfigFilenames(char *main_config, char *extra_config);
 char *M_GetSaveGameDir(char *iwadname);
 
