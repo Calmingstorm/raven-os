@@ -128,6 +128,12 @@ proxy).
 
 ## Licenses
 
+- **RavenOS** is MIT (`LICENSE`), apart from `third_party/`.
+- **doomgeneric** (`third_party/doomgeneric/`, with RavenOS's Doom port files) is GPL-2.0 (`COPYING` there). The
+  kernel links it, so a built kernel image as a whole is distributed under the GPL-2.0, and every web build ships the
+  exact source tree it was built from. `third_party/doomgeneric/README.ravenos.md` lists what RavenOS changed.
+- **Freedoom** Phase 1, the Doom data disk that `tools/build-wad.sh` downloads and checks, is BSD-3-Clause.
+- **libgcc**'s `_divdi3.o`, the one routine linked from it, is GPL-3.0 with the GCC Runtime Library Exception 3.1.
 - **v86** (BSD-2-Clause, `web/licenses/v86-LICENSE.txt`) is installed from npm at build time, pinned in
   `web/package.json`.
 - **SeaBIOS** (`web/vendor/bios/*.bin`) is LGPL-3.0. Its corresponding source, the configuration and the build steps are

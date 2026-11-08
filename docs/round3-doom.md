@@ -58,7 +58,8 @@ the exact bytes and no compression, for the first sector, a middle sector, the f
 
 ## Licences
 
-The kernel image includes GPL-2.0 code, so every web build ships the exact source tree it was built from
+RavenOS's own code is MIT (`LICENSE`). The kernel image includes GPL-2.0 code, so the image as a whole is
+distributed under the GPL-2.0, and every web build ships the exact source tree it was built from
 (`source/ravenos-source.tar.gz`), with the GPL-2.0 text and Freedoom's licence and credits. The page's footer links
 to them. `third_party/doomgeneric/README.ravenos.md` lists every change to upstream files, and
 `tools/doomgeneric-diff.sh` prints the exact diff against the pinned commit.
