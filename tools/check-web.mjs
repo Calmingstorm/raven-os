@@ -46,6 +46,7 @@ const executablePath = [process.env.CHROME_PATH, '/usr/bin/google-chrome', '/usr
   .filter(Boolean).find(candidate => fs.existsSync(candidate));
 assert.ok(executablePath, 'the browser check needs Chrome or Chromium');
 const browser = await chromium.launch({ executablePath, headless: true, args: ['--no-sandbox'] });
+console.log(`check-web: ${executablePath} ${browser.version()}`);
 
 export const screenRows = page => page.evaluate(() => window.emulator.screen_adapter.get_text_screen());
 export const cursor = page => page.evaluate(() => {
@@ -54,10 +55,25 @@ export const cursor = page => page.evaluate(() => {
 });
 const screenText = async page => (await screenRows(page)).join('\n');
 
+// On a failed wait, report the state that decides whether keys can reach the guest.
+const inputState = page => page.evaluate(() => {
+  const ps2 = window.emulator.v86.cpu.devices.ps2;
+  return {
+    focused: document.activeElement && (document.activeElement.id || document.activeElement.tagName),
+    keyboardEnabled: window.emulator.keyboard_adapter.emu_enabled,
+    ps2: ps2 && {
+      stream: ps2.enable_keyboard_stream, haveKeyboard: ps2.have_keyboard, command: ps2.command_register,
+      queued: ps2.kbd_buffer && ps2.kbd_buffer.length, byteReady: ps2.next_byte_is_ready,
+    },
+    status: document.getElementById('status').textContent,
+  };
+});
+
 async function waitForScreen(page, text, timeout = 10000) {
   await page.waitForFunction(
     wanted => window.emulator.screen_adapter.get_text_screen().join('\n').includes(wanted), text, { timeout },
-  ).catch(async () => assert.fail(`screen never showed ${JSON.stringify(text)}; it shows:\n${await screenText(page)}`));
+  ).catch(async () => assert.fail(`screen never showed ${JSON.stringify(text)}; input state: `
+    + `${JSON.stringify(await inputState(page))}; it shows:\n${await screenText(page)}`));
 }
 
 async function open(width, { block } = {}) {
