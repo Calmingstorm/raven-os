@@ -97,16 +97,12 @@ if grep -E '^[[:space:]]*[[:xdigit:]]+:[[:space:]]+((f|v)[a-z0-9]*|emms|wait|ldm
   exit 1
 fi
 
-# Format strings as the compiler sees them, with RavenOS's macros: no %f/%e/%g/%a and no %n. tools/format-scan.py
-# decodes literals as C does (checked against GCC by tools/format-scan-test.sh) and reports any it can't decode.
-for src in "$ROOT"/third_party/doomgeneric/*.c; do
-  gcc -m32 -E -P -ffreestanding -nostdinc -isystem "$(gcc -print-file-name=include)" -I"$ROOT/libc/include" \
-    -I"$ROOT/kernel" -I"$ROOT/third_party/doomgeneric" -DRAVENOS "$src" |
-    python3 "$ROOT/tools/format-scan.py" "$(basename "$src")"
-done > "$TMP/formats"
+# Format strings, from the bytes the compiler emitted into each engine object (tools/format-scan.py): no
+# %f/%e/%g/%a and no %n. Reading compiled strings leaves escapes, joined literals and prefixes to the compiler.
+python3 "$ROOT/tools/format-scan.py" "${engine[@]}" > "$TMP/formats"
 if [ -s "$TMP/formats" ]; then
   cat "$TMP/formats" >&2
-  echo "doom-audit: float or %n conversions, or literals that cannot be decoded, in engine format strings" >&2
+  echo "doom-audit: float or %n conversions in engine format strings" >&2
   exit 1
 fi
 echo "doom-audit: ${#engine[@]} engine objects import exactly the agreed surface; only libgcc's __divdi3 object is linked; no x87/SIMD; no float or %n formats"
