@@ -127,12 +127,17 @@ def cirrus(qemu, kernel, directory):
     _, extra = drives(directory)
     m = Machine(qemu, kernel, "cirrus", directory, name="cirrus-doom", extra=extra)
     try:
+        # Doom must give the same reason the gfx command refuses with, on screen, without leaving text mode.
+        m.type("gfx\n")
+        m.wait_for_text("staying in text mode")
+        row = next(row for row in m.text() if "staying in text mode" in row)
+        why = row.split("gfx: ", 1)[1].split("; staying in text mode")[0]
         m.type("doom\n")
-        m.wait_for_text("Doom session ended: session error", 60)
-        check(b"Doom session error:" in m.serial(), "the session error's reason isn't on serial")
+        m.wait_for_text(f"Doom session ended: session error: {why}", 60)
+        check(m.screen("cirrus-after")[:2] == (720, 400), "a refused Doom left text mode")
         m.type("mem\n")
         m.wait_for_text("physical memory manager")
-        return "cirrus: the session ended with an error before graphics; shell still works"
+        return f"cirrus: the session ended before graphics with \"{why}\" on screen; shell still works"
     finally:
         m.close()
 
