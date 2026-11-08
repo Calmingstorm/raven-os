@@ -112,6 +112,8 @@ static void never_cleanup(void) { CHECK(0 && "rejected cleanup ran"); }
 
 static void check_nested_busy(void) {
     size_t before = raven_doom_allocation_count();
+    char reason_before[160];
+    strcpy(reason_before, raven_doom_abort_reason());
     unsigned resets = reset_calls, unmounts = unmount_calls;
     RavenDoomResult nested = raven_doom_run(never_entry, never_cleanup, 0, NULL);
     CHECK(nested.kind == RAVEN_DOOM_BUSY);
@@ -123,6 +125,7 @@ static void check_nested_busy(void) {
     CHECK(nested.kind == RAVEN_DOOM_BUSY);
     CHECK(raven_doom_allocation_count() == before);
     CHECK(reset_calls == resets && unmount_calls == unmounts);
+    CHECK(strcmp(reason_before, raven_doom_abort_reason()) == 0);
     CHECK(raven_doom_active());
 }
 
@@ -221,6 +224,7 @@ static void cleanup(void) {
 
 static void entry(int argc, char **argv) {
     CHECK(entry_calls++ == 0);
+    CHECK(raven_doom_abort_reason()[0] == 0);
     entry_started = 1;
     CHECK(raven_doom_active());
     CHECK(argc == expected_argc && argv == expected_argv);
@@ -313,6 +317,34 @@ static void partial_cleanup(void) {
     memset(session_memory, 0x5a, 33);
 }
 
+static unsigned reason_length, reason_on_stack;
+static char *reason_source;
+static char expected_reason[160];
+static void snapshot_entry(int argc, char **argv) {
+    (void)argc; (void)argv;
+    char stack_reason[384];
+    CHECK(entry_calls++ == 0 && raven_doom_abort_reason()[0] == 0);
+    entry_started = streams_live = 1;
+    session_memory = raven_doom_malloc(33);
+    CHECK(session_memory != NULL);
+    memset(session_memory, 0x5a, 33);
+    char *source = reason_on_stack ? stack_reason : raven_doom_malloc(reason_length + 1);
+    CHECK(source != NULL && reason_length < sizeof stack_reason);
+    for (unsigned i = 0; i < reason_length; i++) source[i] = (char)('a' + i % 26);
+    source[reason_length] = 0;
+    reason_source = reason_on_stack ? NULL : source;
+    raven_doom_abort(source);
+}
+static void snapshot_cleanup(void) {
+    volatile char scratch[1024];
+    for (unsigned i = 0; i < sizeof scratch; i++) scratch[i] = 'z';
+    CHECK(scratch[sizeof scratch - 1] == 'z');
+    CHECK(cleanup_calls++ == 0 && raven_doom_active());
+    CHECK(strcmp(raven_doom_abort_reason(), expected_reason) == 0);
+    check_nested_busy();
+    if (reason_source) memset(reason_source, 'z', reason_length + 1);
+}
+
 static void fatal_cleanup(void) { raven_doom_exit(0); }
 static void fatal_abort_cleanup(void) { raven_doom_abort("invalid cleanup"); }
 static void child_entry(int argc, char **argv) { (void)argc; (void)argv; }
@@ -369,11 +401,34 @@ int main(void) {
     prepare(); action = 2;
     completed(raven_doom_run(entry, cleanup, 0, NULL), RAVEN_DOOM_ABORTED, 1);
     CHECK(strcmp(serial_log, "Doom session error: partial graphics initialization failed\n") == 0);
+    CHECK(strcmp(raven_doom_abort_reason(), "partial graphics initialization failed") == 0);
     prepare(); action = 3;
     completed(raven_doom_run(entry, cleanup, 0, NULL), RAVEN_DOOM_ABORTED, 1);
     CHECK(strcmp(serial_log, "Doom session error: abort\n") == 0);
+    CHECK(strcmp(raven_doom_abort_reason(), "abort") == 0);
     prepare(); action = 0; expected_cleanup = 0;
     completed(raven_doom_run(entry, NULL, 0, NULL), RAVEN_DOOM_RETURNED, 0);
+    CHECK(raven_doom_abort_reason()[0] == 0);
+
+    const unsigned reason_lengths[] = {0, 1, 155, 156, 158, 159, 160, 161, 319};
+    for (reason_on_stack = 0; reason_on_stack < 2; reason_on_stack++) {
+        for (unsigned n = 0; n < sizeof reason_lengths / sizeof *reason_lengths; n++) {
+            prepare();
+            reason_length = reason_lengths[n];
+            unsigned saved = reason_length < 159 ? reason_length : 159;
+            for (unsigned i = 0; i < saved; i++) expected_reason[i] = (char)('a' + i % 26);
+            expected_reason[saved] = 0;
+            if (!reason_length) strcpy(expected_reason, "abort");
+            if (reason_length > 159) memcpy(expected_reason + 156, "...", 3);
+            completed(raven_doom_run(snapshot_entry, snapshot_cleanup, 0, NULL), RAVEN_DOOM_ABORTED, 1);
+            CHECK(strcmp(raven_doom_abort_reason(), expected_reason) == 0);
+            CHECK(strlen(raven_doom_abort_reason()) <= 159);
+            /* Refusing a new entry must not erase the retained error. */
+            RavenDoomResult refused = raven_doom_run(NULL, NULL, 0, NULL);
+            CHECK(refused.kind == RAVEN_DOOM_UNAVAILABLE);
+            CHECK(strcmp(raven_doom_abort_reason(), expected_reason) == 0);
+        }
+    }
 
     for (action = 0; action < 3; action++) {
         prepare(); exit_status = -81;

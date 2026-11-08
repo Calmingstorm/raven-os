@@ -22,6 +22,25 @@
 #ifndef RAVEN_ATA_POLL_LIMIT
 #define RAVEN_ATA_POLL_LIMIT 1000000u
 #endif
+/* PIT runs at 100 Hz. Allow 31 seconds per phase, including a tick of
+ * quantization slack beyond the 30-second network-latency requirement. */
+#define ATA_WAIT_TICKS 3100u
+#define ATA_SHORT_SPINS 64u
+
+/* Private instruction seam, as in raven_clock.c; production uses real i386
+ * instructions. ATA is main-loop only: IRQ handlers never use this channel. */
+#ifndef RAVEN_ATA_TEST
+static uint32_t ata_flags(void) {
+    uint32_t flags;
+    __asm__ volatile ("pushfl; popl %0" : "=r" (flags) :: "memory");
+    return flags;
+}
+static void ata_cli(void) { __asm__ volatile ("cli" ::: "memory"); }
+static void ata_sti(void) { __asm__ volatile ("sti" ::: "memory"); }
+static void ata_sti_hlt(void) {
+    __asm__ volatile ("sti; hlt" ::: "memory");
+}
+#endif
 
 typedef struct {
     uint8_t attempted, present;
@@ -48,21 +67,45 @@ static void tiny_wait(void) {
 enum { WAIT_PRECOMMAND, WAIT_DRQ, WAIT_COMPLETE, WAIT_IDENTIFY };
 
 static int wait_status(unsigned drive, int phase) {
-    for (uint32_t spin = 0; spin < RAVEN_ATA_POLL_LIMIT; spin++) {
+    const int interrupts = (ata_flags() & (1u << 9)) != 0;
+    const uint32_t start = interrupts ? timer_ticks() : 0;
+    uint32_t spin = 0;
+    for (;;) {
+        const int sleeping = interrupts && spin >= ATA_SHORT_SPINS;
+        /* Check status and deadline with IF clear before STI/HLT. A PIT IRQ
+         * arriving after the check stays pending until HLT, not lost between
+         * the check and sleep. IDE IRQs are masked; PIT also wakes us when a
+         * network completion changes status without an enabled device IRQ. */
+        if (sleeping) ata_cli();
         uint8_t status = inb(ATA_STATUS);
+        int result = 0;
         if (status == 0 || status == 0xff)
-            return fail(drive, RAVEN_ATA_ERROR_ABSENT);
+            result = -RAVEN_ATA_ERROR_ABSENT;
         /* DRQ and ERR are not meaningful while BSY is asserted. */
-        if (status & ATA_SR_BSY) continue;
-        /* Stale ERR/DF from the last command must not prevent recovery. */
-        if (phase == WAIT_PRECOMMAND) return 1;
-        if (status & (ATA_SR_ERR | ATA_SR_DF))
-            return fail(drive, RAVEN_ATA_ERROR_IO);
-        if (phase == WAIT_IDENTIFY) return 1;
-        if (phase == WAIT_DRQ && (status & ATA_SR_DRQ)) return 1;
-        if (phase == WAIT_COMPLETE && !(status & ATA_SR_DRQ)) return 1;
+        else if (!(status & ATA_SR_BSY)) {
+            /* Stale ERR/DF must not prevent a new command recovering. */
+            if (phase == WAIT_PRECOMMAND) result = 1;
+            else if (status & (ATA_SR_ERR | ATA_SR_DF))
+                result = -RAVEN_ATA_ERROR_IO;
+            else if (phase == WAIT_IDENTIFY ||
+                     (phase == WAIT_DRQ && (status & ATA_SR_DRQ)) ||
+                     (phase == WAIT_COMPLETE && !(status & ATA_SR_DRQ)))
+                result = 1;
+        }
+        /* Unsigned subtraction remains correct across the PIT counter wrap.
+         * IF=0 boot callers cannot advance PIT time: retain their bounded spin
+         * and never enable interrupts or halt in that context. */
+        if (!result && (interrupts ?
+            (uint32_t)(timer_ticks() - start) >= ATA_WAIT_TICKS :
+            ++spin >= RAVEN_ATA_POLL_LIMIT))
+            result = -RAVEN_ATA_ERROR_TIMEOUT;
+        if (result) {
+            if (sleeping) ata_sti();
+            return result > 0 ? 1 : fail(drive, -result);
+        }
+        if (sleeping) ata_sti_hlt();
+        else if (interrupts) ++spin;
     }
-    return fail(drive, RAVEN_ATA_ERROR_TIMEOUT);
 }
 
 static int select_drive(unsigned drive, uint8_t head) {

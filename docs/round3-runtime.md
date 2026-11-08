@@ -31,6 +31,14 @@ zero or negative status), recoverable abort, unavailable and busy outcomes.
 The shell is synchronously paused while the entry runs. CPU exceptions still
 use the existing allocation-free serial fatal handler and halt, never longjmp.
 
+Recoverable aborts copy the reason into a runtime-owned 160-byte buffer before
+longjmp. `raven_doom_abort_reason()` exposes up to 159 characters, NUL-terminated
+and marked with `...` if truncated. NULL/empty reasons become `abort`. The copy
+survives stack unwinding, cleanup and session allocation reclamation; only the
+next accepted run clears it. Abort writes serial only while graphics may be
+owned. After cleanup restores the console, `doom` prints the retained reason
+once, instead of only an opaque status code.
+
 Cleanup runs exactly once after entry return/exit/abort. The port must make it
 safe after partial initialization, restore graphics, clear its input state,
 and must not exit/abort/longjmp. Session memory and file streams remain live
@@ -49,6 +57,9 @@ and freeing allocations are not a reset of Doom's initialized global state.
 Until a port is linked, `doom` reports that the engine is unavailable. These
 are weak *references*, not success stubs. The port must explicitly disable
 save/load and host-only paths and make ordinary `I_Quit` nonreturning.
+Before mounting, the command announces the roughly 15 MB initial download.
+Missing, timed-out, invalid and unreadable disks have distinct plain-language
+messages. A consumed engine attempt asks the visitor to restart the machine.
 
 ### Allocation semantics
 
@@ -79,12 +90,17 @@ pinned v86 can request an entire final chunk beyond a shorter image's EOF and
 fail on a short `206`. Capacity checks and fixtures require the chunk-aligned
 transport size; file reads still expose only the logical WAD.
 
-ATA polling has a finite iteration limit, checks BSY before error/DRQ, rejects
-absent/ATAPI devices and out-of-range LBA28 accesses, and selects the intended
-drive before considering status left by the other device. The limit bounds
-polls, not elapsed wall time. Timeouts/errors are honest failures, with no
-fallback to another disk. Master writes report flush/completion failure.
-The quiet explicit-drive API does not flood Wyrd per sector.
+With interrupts enabled, every ATA wait phase uses a wrap-safe 3,100-PIT-tick
+deadline (about 31 seconds at the existing 100 Hz rate), not a CPU-speed-dependent
+poll budget. After 64 short polls it masks interrupts, rechecks status/deadline,
+then uses atomic `sti; hlt` to yield until an interrupt. PIT wakes suffice even
+with IDE IRQs masked. Calls made with IF clear retain a finite poll budget and
+never enable interrupts or halt; this supports pre-PIT boot probing. Both paths
+retain immediate 0x00/0xFF absent detection, check BSY before error/DRQ, reject
+ATAPI/out-of-range LBA28 access and select the intended drive before considering
+status left by the other device. Timeouts/errors are honest failures, with no
+fallback to another disk. Master writes report flush/completion failure. The
+quiet explicit-drive API does not flood Wyrd per sector.
 
 RavenFS uses its existing RAM backend when the master cannot hold its exposed
 128 sectors after base LBA 32 (160 sectors total). Thus a 64-sector browser
@@ -131,8 +147,14 @@ fixture therefore uses `snapshot=on` for the slave and verifies its raw backing
 image's SHA-256 too. This protects the host image through a disposable overlay,
 not hardware write protection. Port-level tests independently verify that no
 slave WRITE/FLUSH command exists or is emitted.
-Native command tests cover missing/partial port symbols, low-memory refusal,
-preflight retry, exact argv and one-engine-attempt guard.
+Native command tests cover missing/partial port symbols, all mount error
+messages, the pre-mount loading announcement, low-memory refusal, preflight
+retry, exact argv and one-engine-attempt guard. Abort tests cover stack and
+session-owned reason sources, cleanup mutation/reclamation, truncation
+boundaries, nested refusals and clearing stale reasons on a new run. The
+command test forbids console writes until mock graphics ownership is restored.
+The v86 suite includes real 1,500 ms HTTP delays on every cold slave range;
+native port tests exercise the exact PIT deadline, wraparound and IF=0 fallback.
 
 These tests do not establish rendered Doom gameplay, graphics restoration by
 the future port, movement/fire release or upstream initialization robustness.

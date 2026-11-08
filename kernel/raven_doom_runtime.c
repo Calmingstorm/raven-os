@@ -19,6 +19,7 @@ static Allocation *allocations;
 static size_t allocation_count;
 static jmp_buf boundary;
 static RavenDoomResult result;
+static char abort_reason[160];
 static unsigned phase; /* 0 idle, 1 entry, 2 cleanup */
 static RavenDoomCleanup session_cleanup;
 extern void raven_libc_reset_streams(void);
@@ -47,6 +48,7 @@ static _Noreturn void programming_fault(const char *reason) {
 
 int raven_doom_active(void) { return phase != 0; }
 size_t raven_doom_allocation_count(void) { return allocation_count; }
+const char *raven_doom_abort_reason(void) { return abort_reason; }
 
 static Allocation *find_allocation(void *ptr) {
     for (Allocation *a = allocations; a; a = a->next)
@@ -117,6 +119,7 @@ RavenDoomResult raven_doom_run(RavenDoomEntry entry, RavenDoomCleanup cleanup,
         if (!argv[i]) return (RavenDoomResult){ RAVEN_DOOM_UNAVAILABLE, EINVAL };
     session_cleanup = cleanup;
     result = (RavenDoomResult){ RAVEN_DOOM_RETURNED, 0 };
+    abort_reason[0] = '\0';
     discard_input();
     phase = 1;
     if (setjmp(boundary) == 0) entry(argc, argv);
@@ -140,9 +143,23 @@ _Noreturn void raven_doom_exit(int status) {
 
 _Noreturn void raven_doom_abort(const char *reason) {
     if (phase != 1) programming_fault("abort outside entry");
+    if (!reason || !reason[0]) reason = "abort";
+    /* Own the snapshot before longjmp, port cleanup or session reclamation can
+     * invalidate its source. Leave room for a visible truncation marker. */
+    size_t i = 0;
+    while (i < sizeof(abort_reason) - 1 && reason[i]) {
+        abort_reason[i] = reason[i];
+        i++;
+    }
+    abort_reason[i] = '\0';
+    if (reason[i]) {
+        abort_reason[i - 3] = '.';
+        abort_reason[i - 2] = '.';
+        abort_reason[i - 1] = '.';
+    }
     /* Serial only: a partially initialized port may own the VGA registers. */
     serial_write("Doom session error: ");
-    serial_write(reason ? reason : "abort");
+    serial_write(reason);
     serial_write("\n");
     result = (RavenDoomResult){ RAVEN_DOOM_ABORTED, 1 };
     longjmp(boundary, 1);

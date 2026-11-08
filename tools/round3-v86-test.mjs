@@ -9,7 +9,6 @@ import {createRequire} from 'node:module';
 import {createHash} from 'node:crypto';
 import {access,mkdir,mkdtemp,readFile,rm,writeFile} from 'node:fs/promises';
 import {dirname,join,resolve} from 'node:path';
-import {tmpdir} from 'node:os';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
@@ -19,7 +18,7 @@ for(let i=2;i<process.argv.length;i++){
     if(arg==='--help'){
         console.log('round3-v86-test.sh [--assets DIR] [--playwright PATH | --puppeteer PATH] [--chrome FILE] [--report FILE]\n'+
             'Builds disposable synthetic guests and fixtures. mjs requires --kernels DIR --fixtures DIR.\n'+
-            'Scenarios: valid, corrupt, short, missing, small-master. ROUND3_KEEP=1 retains build/fixtures/report.\n'+
+            'Scenarios: valid, latency (1500 ms per cold slave chunk), corrupt, short, missing, small-master. ROUND3_KEEP=1 retains build/fixtures/report.\n'+
             'No engine, playable WAD, shared build output, host disks or active desktop session.');
         process.exit(0);
     }
@@ -46,6 +45,7 @@ const fixtures=new Map();
 for(const name of ['valid','corrupt','short','master','small-master'])fixtures.set(name,await readFile(join(fixtureDir,`${name}.img`)));
 const scenarios=[
     {name:'valid',mode:0,master:'master',slave:'valid'},
+    {name:'latency',mode:0,master:'master',slave:'valid',slaveDelayMs:1500},
     {name:'corrupt',mode:1,master:'master',slave:'corrupt'},
     {name:'short',mode:1,master:'master',slave:'short'},
     {name:'missing',mode:1,master:'master',slave:null},
@@ -82,7 +82,7 @@ try{
 }
 report.browserRuntime=kind;
 const requests=new Map(scenarios.map(s=>[s.name,[]]));
-function diskResponse(req,res,data,log){
+function diskResponse(req,res,data,log,delayMs=0,receivedAt=performance.now()){
     res.setHeader('Accept-Ranges','bytes');res.setHeader('Content-Type','application/octet-stream');
     res.setHeader('Cache-Control','no-store');
     if(req.method==='HEAD'){res.setHeader('Content-Length',data.length);res.end();return;}
@@ -99,7 +99,8 @@ function diskResponse(req,res,data,log){
         status=206;res.setHeader('Content-Range',`bytes ${start}-${end}/${data.length}`);
     }
     const length=end-start+1;
-    log?.push({range:req.headers.range||null,start,end,bytes:length,status});
+    log?.push({range:req.headers.range||null,start,end,bytes:length,status,delayMs,
+        responseWaitMs:performance.now()-receivedAt});
     res.writeHead(status,{'Content-Length':length});res.end(data.subarray(start,end+1));
 }
 const html=s=>`<!doctype html><meta charset="utf-8"><title>Round3 ${s.name}</title><script type="module">
@@ -124,7 +125,10 @@ const server=createServer(async(req,res)=>{
         if(disk){
             const s=scenarios.find(s=>s.name===disk[2]),name=s?.[disk[1]];
             if(!name){res.writeHead(404);res.end();return;}
-            diskResponse(req,res,fixtures.get(name),disk[1]==='slave'?requests.get(s.name):null);return;
+            const receivedAt=performance.now();
+            const delayMs=disk[1]==='slave'&&req.headers.range?(s.slaveDelayMs||0):0;
+            if(delayMs)await new Promise(r=>setTimeout(r,delayMs));
+            diskResponse(req,res,fixtures.get(name),disk[1]==='slave'?requests.get(s.name):null,delayMs,receivedAt);return;
         }
         if(kernels.has(path)){res.end(kernels.get(path));return;}
         if(!files.has(path)){res.writeHead(404);res.end();return;}
@@ -157,7 +161,7 @@ try{
     await new Promise(r=>server.listen(0,'127.0.0.1',r));
     const base=`http://127.0.0.1:${server.address().port}`;
     await transportSelftest(base);
-    profile=await mkdtemp(join(tmpdir(),'round3-chrome-'));
+    profile=await mkdtemp(join(kernelDir,'round3-chrome-'));
     const executablePath=options.chrome||process.env.CHROME_PATH||'/usr/bin/google-chrome';
     const args=['--disable-dev-shm-usage','--disable-background-networking',...(process.getuid?.()===0?['--no-sandbox']:[])];
     browser=kind==='playwright'?await runtime.chromium.launchPersistentContext(profile,{executablePath,headless:true,args}):
@@ -199,6 +203,13 @@ try{
             assert.ok(totalBytes<fixtures.get(s.slave).length,'sparse WAD read, not full image transfer');
             const finalStart=Math.floor((logicalBytes-1)/512)*512;
             assert.ok(ranges.some(r=>r.start<=finalStart&&r.end>=finalStart+511),'final partial logical sector fetched including physical padding');
+        }
+        if(s.slaveDelayMs){
+            assert.ok(ranges.some(r=>r.start>0),'cold chunk beyond v86 initialization prefetch was fetched');
+            for(const r of ranges){
+                assert.equal(r.delayMs,1500,'each cold range delayed on real HTTP transport');
+                assert.ok(r.responseWaitMs>=1490,'server really waited for the latency, not just guest-clock simulation');
+            }
         }
         report.tests.push({name:s.name,status:'pass',serial,ms:Date.now()-started,debugExits,pageErrors,master,
             slave:{fixture:s.slave,async:!!s.slave,fixedChunkSize:chunkBytes,size:s.slave?fixtures.get(s.slave).length:0,totalBytes,ranges}});

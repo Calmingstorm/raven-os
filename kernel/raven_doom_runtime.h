@@ -19,6 +19,10 @@ RavenDoomResult raven_doom_run(RavenDoomEntry entry, RavenDoomCleanup cleanup,
                               int argc, char **argv);
 _Noreturn void raven_doom_exit(int status);
 _Noreturn void raven_doom_abort(const char *reason);
+/* Runtime-owned, NUL-terminated abort snapshot, at most 159 bytes including a
+ * trailing "..." on truncation. Survives cleanup; cleared by the next accepted
+ * run (not nested/preflight refusals). No console writes occur during abort. */
+const char *raven_doom_abort_reason(void);
 int raven_doom_active(void);
 
 /* The libc allocation domain is deliberately separate from kernel kmalloc.

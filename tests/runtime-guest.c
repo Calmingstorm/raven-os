@@ -37,9 +37,11 @@ static void cleanup(void) {
     check(retained && ((unsigned char *)retained)[0] == 0x42, "allocation alive during cleanup");
     check(raven_doom_allocation_count() == 1, "one leaked session allocation before cleanup");
     if (live_file) check(ftell(live_file) == 4, "stream alive during cleanup");
+    if (entries == 4 && !live_file) memset((char *)retained + 1, 'z', 31);
 }
 static void entry(int argc, char **argv) {
     entries++;
+    check(raven_doom_abort_reason()[0] == 0, "new run clears old abort reason");
     check(argc == 1 && !strcmp(argv[0], "mock"), "argv intact after setjmp");
     check(raven_doom_run(entry, cleanup, argc, argv).kind == RAVEN_DOOM_BUSY, "nested boundary rejected");
     retained = malloc(513);
@@ -55,7 +57,8 @@ static void entry(int argc, char **argv) {
     if (entries == 1) return;
     if (entries == 2) exit(-37);
     if (entries == 3) exit(0);
-    raven_doom_abort("deliberate recoverable guest failure");
+    strcpy((char *)retained + 1, "deliberate recoverable guest failure");
+    raven_doom_abort((char *)retained + 1);
 }
 static void test_runtime(void) {
     char arg[] = "mock";
@@ -71,6 +74,8 @@ static void test_runtime(void) {
         check(r.status == (i == 1 ? -37 : i == 3 ? 1 : 0), "exact exit status");
         check(cleanups == i + 1 && raven_doom_allocation_count() == 0, "cleanup once with reclamation");
         check(!raven_doom_active(), "boundary inactive on return");
+        check(!strcmp(raven_doom_abort_reason(), i == 3 ?
+            "deliberate recoverable guest failure" : ""), "abort snapshot survives cleanup and reclamation");
         for (unsigned n = 0; n < 31; n++) check(((unsigned char *)unrelated)[n] == 0xa7, "kernel allocation survives cleanup");
     }
     kfree(unrelated);
@@ -78,6 +83,7 @@ static void test_runtime(void) {
 }
 static void file_entry(int argc, char **argv) {
     (void)argc; (void)argv;
+    check(raven_doom_abort_reason()[0] == 0, "next session clears retained abort reason");
     retained = malloc(32); check(retained != 0, "file session allocation");
     memset(retained, 0x42, 32);
     live_file = fopen(RAVEN_WAD_PATH, "rb");

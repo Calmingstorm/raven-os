@@ -16,13 +16,16 @@ static unsigned checks;
 static char output[4096], serial_output[1024];
 static unsigned mounts, unmounts, probe_calls, probe_frees;
 static unsigned entries, cleanups, resets, logs;
-static int missing_wad, fail_probe, interrupts_enabled = 1;
+static int mount_error, fail_probe, interrupts_enabled = 1;
 static int port_action, port_status;
 static unsigned char *port_memory;
+static char *port_reason;
+static int display_owned;
 static void *probe;
 static char log_result[32];
 
 void vga_write(const char *s) {
+    CHECK(!display_owned);
     CHECK(strlen(output) + strlen(s) < sizeof output);
     strcat(output, s);
 }
@@ -51,8 +54,9 @@ int keyboard_pop(KeyEvent *event) { (void)event; return 0; }
 int serial_read_char(char *c) { (void)c; return 0; }
 int raven_wad_mount(void) {
     CHECK(!raven_doom_active());
+    CHECK(strcmp(output, "Loading Doom (Freedoom). The first start downloads about 15 MB.\n") == 0);
     mounts++;
-    if (missing_wad) { errno = ENOENT; return -1; }
+    if (mount_error) { errno = mount_error; return -1; }
     return 0;
 }
 void raven_wad_unmount(void) {
@@ -100,6 +104,7 @@ void kfree(void *p) {
 #ifdef HAVE_PORT_MAIN
 void raven_doom_port_main(int argc, char **argv) {
     CHECK(entries++ == 0);
+    display_owned = 1;
     CHECK(raven_doom_active());
     CHECK(argc == 3 && argv && argv[3] == NULL);
     CHECK(strcmp(argv[0], "doom") == 0);
@@ -110,7 +115,12 @@ void raven_doom_port_main(int argc, char **argv) {
     CHECK(port_memory != NULL);
     memset(port_memory, 0x69, 29);
     if (port_action == 1) raven_doom_exit(port_status);
-    if (port_action == 2) raven_doom_abort("mock port partial initialization");
+    if (port_action == 2) {
+        port_reason = raven_doom_malloc(64);
+        CHECK(port_reason != NULL);
+        strcpy(port_reason, "mock port partial initialization");
+        raven_doom_abort(port_reason);
+    }
 }
 #endif
 #ifdef HAVE_PORT_CLEANUP
@@ -118,7 +128,10 @@ void raven_doom_port_cleanup(void) {
     CHECK(cleanups++ == 0);
     CHECK(raven_doom_active() && entries == 1);
     CHECK(port_memory && port_memory[0] == 0x69 && port_memory[28] == 0x69);
-    CHECK(raven_doom_allocation_count() == 1);
+    CHECK(raven_doom_allocation_count() == (port_action == 2 ? 2u : 1u));
+    CHECK(strstr(output, "Doom session ended") == NULL);
+    if (port_reason) memset(port_reason, 'z', 64);
+    display_owned = 0;
 }
 #endif
 
@@ -142,18 +155,29 @@ static void linked_test(const char *mode) {
     CHECK(r.kind == RAVEN_DOOM_RETURNED && !raven_doom_active());
     CHECK(entries == 0 && cleanups == 0 && resets == 1 && unmounts == 1);
 
-    output[0] = 0;
-    missing_wad = 1;
-    doom_command();
-    CHECK(strstr(output, "WAD validation failed") != NULL);
-    CHECK(mounts == 1 && probe_calls == 0 && entries == 0 && logs == 0);
+    static const struct { int error; const char *message; } failures[] = {
+        {ENOENT, "no Doom data disk is attached (primary IDE slave)"},
+        {ETIMEDOUT, "the Doom data disk didn't answer in time"},
+        {EINVAL, "the disk on the primary slave isn't the Freedoom 0.13.0 image"},
+        {EIO, "the Doom data disk couldn't be read"},
+        {ENOMEM, "the Doom data disk couldn't be read"}
+    };
+    const unsigned failed_mounts = sizeof failures / sizeof *failures;
+    for (unsigned i = 0; i < failed_mounts; i++) {
+        output[0] = 0;
+        mount_error = failures[i].error;
+        doom_command();
+        CHECK(strstr(output, failures[i].message) != NULL);
+        CHECK(strstr(output, "errno") == NULL);
+        CHECK(mounts == i + 1 && probe_calls == 0 && entries == 0 && logs == 0);
+    }
 
     output[0] = 0;
-    missing_wad = 0;
+    mount_error = 0;
     fail_probe = 1;
     doom_command();
     CHECK(strstr(output, "8 MiB") != NULL);
-    CHECK(mounts == 2 && probe_calls == 1 && probe_frees == 0);
+    CHECK(mounts == failed_mounts + 1 && probe_calls == 1 && probe_frees == 0);
     CHECK(unmounts == 2 && entries == 0 && logs == 0);
 
     /* Runtime preflight refusal must clear engine_attempted and unmount. */
@@ -162,19 +186,22 @@ static void linked_test(const char *mode) {
     interrupts_enabled = 0;
     doom_command();
     CHECK(strstr(output, "unavailable") != NULL);
-    CHECK(mounts == 3 && probe_calls == 2 && probe_frees == 1);
+    CHECK(mounts == failed_mounts + 2 && probe_calls == 2 && probe_frees == 1);
     CHECK(unmounts == 3 && entries == 0 && cleanups == 0);
     CHECK(logs == 1 && resets == 1);
 
     output[0] = 0;
     interrupts_enabled = 1;
     doom_command();
-    CHECK(mounts == 4 && probe_calls == 3 && probe_frees == 2);
+    CHECK(mounts == failed_mounts + 3 && probe_calls == 3 && probe_frees == 2);
     CHECK(entries == 1 && cleanups == 1 && resets == 2 && unmounts == 4);
     CHECK(logs == 2 && probe == NULL);
     CHECK(!raven_doom_active() && raven_doom_allocation_count() == 0);
     if (port_action == 2) {
-        CHECK(strstr(output, "session error (status=1)") != NULL);
+        const char *message = "Doom session ended: session error: mock port partial initialization\n";
+        char *found = strstr(output, message);
+        CHECK(found != NULL && strstr(found + strlen(message), message) == NULL);
+        CHECK(strstr(output, "status=") == NULL);
         CHECK(strcmp(serial_output, "Doom session error: mock port partial initialization\n") == 0);
         CHECK(strcmp(log_result, "error") == 0);
     } else {
@@ -190,7 +217,9 @@ static void linked_test(const char *mode) {
         output[0] = 0;
         doom_command();
         CHECK(strstr(output, "already initialized") != NULL);
-        CHECK(entries == 1 && cleanups == 1 && mounts == 4);
+        CHECK(strstr(output, "Restart the machine to play again.") != NULL);
+        CHECK(strstr(output, "Loading Doom") == NULL);
+        CHECK(entries == 1 && cleanups == 1 && mounts == failed_mounts + 3);
         CHECK(probe_calls == 3 && resets == 2 && unmounts == 4 && logs == 2);
     }
 }
@@ -208,12 +237,12 @@ int main(int argc, char **argv) {
     for (unsigned i = 0; i < 3; i++) {
         output[0] = 0;
         doom_command();
-        CHECK(strcmp(output, "Doom unavailable: engine port is not linked in this build.\n") == 0);
+        CHECK(strcmp(output, "Doom is not available in this build.\n") == 0);
         CHECK(!mounts && !unmounts && !probe_calls && !entries && !cleanups);
         CHECK(!resets && !logs && !raven_doom_active());
     }
     /* These are meaningful in one-adapter variants but not both absent. */
-    (void)port_action; (void)port_status;
+    (void)port_action; (void)port_status; (void)port_reason;
     printf("doom-command-test: absent/partial engine: %u checks passed\n", checks);
 #endif
     return 0;

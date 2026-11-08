@@ -4,7 +4,36 @@
 #include "kernel.h"
 #include "raven_ata.h"
 
-/* The unmodified driver talks only to these port-level mocks. */
+/* Actual timer counter and driver; only port I/O and privileged instructions
+ * are replaced. Simulated PIT IRQs make 31-second deadlines deterministic. */
+#include "../kernel/timer.c"
+static int if_enabled;
+static unsigned halts, cli_count, sti_count, spurious, inject_before_cli;
+static unsigned inject_pending, pending_irq;
+static uint64_t elapsed_ticks;
+static uint32_t ata_flags(void) { return if_enabled ? 0x200u : 0; }
+static void tick(void) { timer_on_irq(); ++elapsed_ticks; }
+static void ata_cli(void) {
+    assert(if_enabled);
+    if(inject_before_cli && elapsed_ticks==3099) { tick(); inject_before_cli=0; }
+    if_enabled=0; ++cli_count;
+}
+static void ata_sti(void) {
+    assert(!if_enabled); if_enabled=1; ++sti_count;
+}
+static void ata_sti_hlt(void) {
+    assert(!if_enabled); if_enabled=1; ++halts;
+    /* IRQ pending between the masked status/deadline check and STI/HLT
+     * must wake HLT, not disappear in a check-then-sleep race. */
+    if(inject_pending) { pending_irq=1; inject_pending=0; }
+    if(spurious) { --spurious; return; }
+    if(pending_irq) pending_irq=0;
+    tick();
+}
+#define RAVEN_ATA_TEST
+#include "../kernel/ata.c"
+
+/* Port-level disk model is independent of the wait implementation. */
 enum { DATA=0x1f0, COUNT=0x1f2, LBA0=0x1f3, LBA1=0x1f4,
        LBA2=0x1f5, SELECT=0x1f6, STATUS=0x1f7, ALT=0x3f6 };
 enum { ID=0xec, READ=0x20, WRITE=0x30, FLUSH=0xe7 };
@@ -17,7 +46,7 @@ typedef struct {
     unsigned commands[256], word, words_read, words_written, status_reads;
     unsigned busy_reads, command_busy_reads;
     int mode, flush_mode, signature;
-    uint32_t last_lba;
+    uint32_t last_lba, latency_ticks, command_start;
 } MockDrive;
 static MockDrive disks[2];
 static unsigned selected, logs, slave_data_writes, cases;
@@ -33,6 +62,9 @@ static void init_disk(unsigned drive, uint32_t sectors) {
     for(unsigned i=0;i<512;i++) d->sector[i]=(uint8_t)(i*13+drive*37);
 }
 static void reset(void) {
+    if_enabled=0; pit_ticks=0; elapsed_ticks=0;
+    halts=cli_count=sti_count=spurious=inject_before_cli=0;
+    inject_pending=pending_irq=0;
     init_disk(0,64); init_disk(1,2048);
     selected=logs=slave_data_writes=0;
     ata_init();
@@ -53,6 +85,9 @@ uint8_t inb(uint16_t port) {
     assert(port==STATUS || port==ALT);
     if(port==STATUS) {
         d->status_reads++;
+        if(d->command && d->latency_ticks &&
+           (uint32_t)(timer_ticks()-d->command_start)<d->latency_ticks)
+            return 0x88;
         if(d->command && d->busy_reads) {
             d->busy_reads--;
             return 0x88; /* DRQ must not make BSY data readable. */
@@ -69,6 +104,7 @@ void outb(uint16_t port,uint8_t value) {
     assert(port==STATUS);
     assert(value==ID || value==READ || value==WRITE || value==FLUSH);
     d->commands[value]++; d->command=value; d->word=0;
+    d->command_start=timer_ticks();
     d->busy_reads=d->command_busy_reads;
     d->last_lba=(uint32_t)d->regs[1] | ((uint32_t)d->regs[2]<<8) |
         ((uint32_t)d->regs[3]<<16) | ((uint32_t)(d->head&15)<<24);
@@ -252,9 +288,95 @@ static void test_master_write_completion(void) {
     assert(ata_write_sector(20,buf)); /* Own stale flush ERR is recoverable. */
     assert(raven_ata_error(0)==RAVEN_ATA_ERROR_NONE); cases++;
 }
+static void test_timed_waits(void) {
+    const uint32_t starts[]={0,UINT32_MAX-20};
+    uint8_t buf[512];
+    for(unsigned i=0;i<sizeof(starts)/sizeof(starts[0]);i++) {
+        reset(); assert(raven_ata_probe(1));
+        if_enabled=1; pit_ticks=starts[i];
+        disks[1].mode=STUCK_BUSY;
+        /* Non-timer wakes must not spend the elapsed-time budget. */
+        spurious=7; inject_pending=1;
+        unsigned before=disks[1].status_reads;
+        assert(!raven_ata_read_sector(1,0,buf));
+        assert(raven_ata_error(1)==RAVEN_ATA_ERROR_TIMEOUT);
+        assert(elapsed_ticks==3100 && (uint32_t)(timer_ticks()-starts[i])==3100);
+        assert(halts==3107 && !pending_irq && if_enabled);
+        assert(disks[1].status_reads-before>RAVEN_ATA_POLL_LIMIT);
+        assert(cli_count==halts+1 && sti_count==1);
+        /* Same device recovers after timeout, now taking 1500 ms. No stale
+         * timeout, poll budget or IF state may poison the subsequent read. */
+        disks[1].status=0x40; disks[1].mode=OK; disks[1].command=0;
+        disks[1].latency_ticks=150;
+        uint64_t before_ticks=elapsed_ticks;
+        assert(raven_ata_read_sector(1,0,buf));
+        assert(elapsed_ticks-before_ticks==150 && if_enabled);
+        assert(raven_ata_error(1)==RAVEN_ATA_ERROR_NONE);
+        assert(memcmp(buf,disks[1].sector,512)==0);
+        cases+=2;
+    }
+    /* Every phase, not just READ's DRQ, obeys the real deadline. */
+    for(int phase=WAIT_PRECOMMAND;phase<=WAIT_IDENTIFY;phase++) {
+        reset(); if_enabled=1; selected=1; disks[1].status=0x80;
+        assert(!wait_status(1,phase));
+        assert(elapsed_ticks==3100 && halts==3100 && if_enabled);
+        assert(raven_ata_error(1)==RAVEN_ATA_ERROR_TIMEOUT); cases++;
+    }
+    /* Deadline tick arrives immediately before CLI. The masked recheck must
+     * observe it rather than sleeping for one more tick. */
+    reset(); if_enabled=1; selected=1; disks[1].status=0x80;
+    inject_before_cli=1;
+    assert(!wait_status(1,WAIT_DRQ));
+    assert(elapsed_ticks==3100 && halts==3099 && if_enabled && !inject_before_cli); cases++;
+    /* A slow command without BSY, or with DRQ stuck during completion, has
+     * the same elapsed-time bound. Immediate ERR/DF remain immediate. */
+    const int modes[]={NO_DRQ,BUSY_DRQ,COMPLETE_BUSY,COMPLETE_DRQ};
+    for(unsigned i=0;i<sizeof(modes)/sizeof(modes[0]);i++) {
+        reset(); assert(raven_ata_probe(1)); if_enabled=1;
+        disks[1].mode=modes[i];
+        assert(!raven_ata_read_sector(1,0,buf));
+        assert(raven_ata_error(1)==RAVEN_ATA_ERROR_TIMEOUT);
+        assert(elapsed_ticks==3100 && halts==3100 && if_enabled); cases++;
+    }
+    reset(); assert(raven_ata_probe(1)); if_enabled=1;
+    disks[1].command_busy_reads=3;
+    assert(raven_ata_read_sector(1,0,buf));
+    assert(!halts && !cli_count && !elapsed_ticks && if_enabled); cases++;
+    /* Immediate success, absence, and I/O failure all preserve enabled IF
+     * without unnecessary sleep, including zero and floating status. */
+    const uint8_t statuses[]={0x48,0,0xff,0x41,0x60};
+    for(unsigned i=0;i<sizeof(statuses);i++) {
+        reset(); if_enabled=1; selected=1; disks[1].status=statuses[i];
+        assert(wait_status(1,WAIT_DRQ)==(i==0));
+        assert(!halts && !cli_count && !elapsed_ticks && if_enabled);
+        if(i) assert(raven_ata_error(1)==(i<3?RAVEN_ATA_ERROR_ABSENT:RAVEN_ATA_ERROR_IO));
+        cases++;
+    }
+    /* Success and errors discovered after sleeping also restore IF. */
+    for(unsigned i=0;i<sizeof(statuses);i++) {
+        reset(); if_enabled=1; selected=1;
+        disks[1].command=READ; disks[1].latency_ticks=150;
+        disks[1].status=statuses[i];
+        assert(wait_status(1,WAIT_DRQ)==(i==0));
+        assert(elapsed_ticks==150 && halts==150 && if_enabled && sti_count==1);
+        if(i) assert(raven_ata_error(1)==(i<3?RAVEN_ATA_ERROR_ABSENT:RAVEN_ATA_ERROR_IO));
+        cases++;
+    }
+    /* A response just under the generous deadline is not a spin timeout. */
+    reset(); assert(raven_ata_probe(1)); if_enabled=1;
+    disks[1].command=0;
+    disks[1].latency_ticks=3099;
+    assert(raven_ata_read_sector(1,0,buf) && elapsed_ticks==3099 && if_enabled); cases++;
+    /* IF=0 cannot advance the clock and must never STI or HLT, even for a
+     * device which would complete after time passes with IF enabled. */
+    reset(); assert(raven_ata_probe(1)); disks[1].latency_ticks=150;
+    assert(!raven_ata_read_sector(1,0,buf));
+    assert(!elapsed_ticks && !halts && !cli_count && !sti_count && !if_enabled);
+    assert(raven_ata_error(1)==RAVEN_ATA_ERROR_TIMEOUT); cases++;
+}
 int main(void) {
     test_isolation(); test_capacity_range(); test_identify(); test_recovery();
-    test_bounded_waits(); test_master_write_completion();
+    test_bounded_waits(); test_master_write_completion(); test_timed_waits();
     printf("ATA port-level tests: %u cases passed\n",cases);
     return 0;
 }

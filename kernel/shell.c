@@ -79,7 +79,7 @@ static void write_help(const char *topic) {
         vga_write("Graphics (Bochs VBE display: QEMU std-vga, v86)\n"
                   "  gfx       Switch to 640x400x32, draw a test pattern; any key returns\n"
                   "  gfx info  Display device, framebuffer and mode availability\n"
-                  "  doom      Launch linked Doom port once per boot; read-only WAD\n");
+                  "  doom      Play Doom (Freedoom); once per boot\n");
     } else if (!strcmp(topic, "files")) {
         vga_write("RAM files (changes are not persistent until saved or synced)\n"
                   "  fs                     Filesystem status\n"
