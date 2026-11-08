@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# A private directory per run: several users run these on one machine, so fixed /tmp names collide.
+RAVEN_TMP="$(mktemp -d "${TMPDIR:-/tmp}/ravenos-test.XXXXXX")"
+trap 'status=$?; [ "$status" -eq 0 ] && rm -rf "$RAVEN_TMP"; exit "$status"' EXIT
 "$ROOT/tools/build-disk.sh" >/dev/null
-LOG=/tmp/ravenos-serial-command-test.log
+LOG=$RAVEN_TMP/ravenos-serial-command-test.log
 (
   sleep 2
   printf 'serial\n'
@@ -34,7 +37,7 @@ if [ "$code" != "0" ] && [ "$code" != "124" ]; then
   cat "$LOG"
   exit "$code"
 fi
-CLEAN=/tmp/ravenos-serial-command-test.clean.log
+CLEAN=$RAVEN_TMP/ravenos-serial-command-test.clean.log
 LC_ALL=C tr -cd '\11\12\15\40-\176' < "$LOG" > "$CLEAN"
 grep -q 'serial console' "$CLEAN"
 grep -q 'rings / descriptor tables' "$CLEAN"

@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# A private directory per run: several users run these on one machine, so fixed /tmp names collide.
+RAVEN_TMP="$(mktemp -d "${TMPDIR:-/tmp}/ravenos-test.XXXXXX")"
+trap 'status=$?; [ "$status" -eq 0 ] && rm -rf "$RAVEN_TMP"; exit "$status"' EXIT
 "$ROOT/tools/build-disk.sh" >/dev/null
-LOG=/tmp/ravenos-script-exec-test.log
-CLEAN=/tmp/ravenos-script-exec-test.clean.log
+LOG=$RAVEN_TMP/ravenos-script-exec-test.log
+CLEAN=$RAVEN_TMP/ravenos-script-exec-test.clean.log
 (
   sleep 2
   printf 'edit /bin/note.rvn RVNEXE write /home/script-note script-exec-ok\n'

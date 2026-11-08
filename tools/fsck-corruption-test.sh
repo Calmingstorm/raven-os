@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# A private directory per run: several users run these on one machine, so fixed /tmp names collide.
+RAVEN_TMP="$(mktemp -d "${TMPDIR:-/tmp}/ravenos-test.XXXXXX")"
+trap 'status=$?; [ "$status" -eq 0 ] && rm -rf "$RAVEN_TMP"; exit "$status"' EXIT
 "$ROOT/tools/build-disk.sh" >/dev/null
-LOG1=/tmp/ravenos-fsck-corrupt-pass1.log
-LOG2=/tmp/ravenos-fsck-corrupt-pass2.log
-CLEAN2=/tmp/ravenos-fsck-corrupt-pass2.clean.log
+LOG1=$RAVEN_TMP/ravenos-fsck-corrupt-pass1.log
+LOG2=$RAVEN_TMP/ravenos-fsck-corrupt-pass2.log
+CLEAN2=$RAVEN_TMP/ravenos-fsck-corrupt-pass2.clean.log
 (
   sleep 2
   printf 'edit /persist/fsck-proof clean-before-corrupt\n'
