@@ -253,11 +253,40 @@ static void test_editor_all_rows(void) {
     puts("vga: exhaustive 0..159 growth/shrink at all 25 prompt rows passed");
 }
 
+/* Graphics own the display: output is kept (and mirrored to serial) without touching VRAM or the CRTC, and a
+ * refresh after hardware returns shows all of it with the cursor where the text ended. */
+static void test_hardware_off(void) {
+    static uint16_t vram_before[VGA_WIDTH * VGA_HEIGHT];
+    uint8_t crtc_before[256];
+    reset();
+    vga_write("before\n");
+    for (size_t i = 0; i < VGA_WIDTH * VGA_HEIGHT; i++) vram_before[i] = vga_test_vram[i];
+    memcpy(crtc_before, crtc, sizeof(crtc));
+    size_t serial_before = serial_count;
+
+    vga_hardware(0);
+    for (int i = 0; i < 30; i++) vga_write("during graphics\n");
+    vga_write("last line");
+    vga_backspace();
+    for (size_t i = 0; i < VGA_WIDTH * VGA_HEIGHT; i++) assert(vga_test_vram[i] == vram_before[i]);
+    assert(memcmp(crtc_before, crtc, sizeof(crtc)) == 0);
+    assert(serial_count == serial_before + 30 * 16 + 9);
+
+    vga_hardware(1);
+    vga_refresh();
+    assert(history_count == 7);   /* 31 newlines on a 25-row screen scroll 7 rows into history */
+    for (size_t x = 0; x < 8; x++) assert((char)screen(24, x) == "last lin"[x]);
+    assert((char)screen(24, 8) == ' ');
+    for (size_t x = 0; x < 15; x++) assert((char)screen(23, x) == "during graphics"[x]);
+    assert(cursor_position() == 24 * VGA_WIDTH + 8);
+}
+
 int main(void) {
     test_wrap_scroll_backspace();
     test_colored_history();
     test_editor();
     test_editor_all_rows();
+    test_hardware_off();
     puts("vga: all production-driver tests passed");
     return 0;
 }

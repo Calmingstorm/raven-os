@@ -176,9 +176,16 @@ void pci_enable_memory(const PciDevice *dev);
 /* A validated 32-bit memory BAR: returns 1 with its base and size, or 0. */
 int pci_memory_bar(const PciDevice *dev, uint8_t index, uint32_t *base, uint32_t *size);
 
+/* 640x400x32 session: framebuffer and stride (pixels), or 0 with *why. gfx_end restores the console. */
+/* 1 when the 640x400x32 mode can be entered, else 0 with *why. Changes nothing. */
+int gfx_available(const char **why);
+volatile uint32_t *gfx_begin(uint32_t *stride, const char **why);
+void gfx_end(void);
 void gfx_command(void);
 void gfx_render_info(void);
 void vga_refresh(void);
+/* 0 while graphics own the display: text is kept, VRAM and the CRTC are left alone. 1 hands them back. */
+void vga_hardware(int on);
 
 void *memset(void *dst, int value, size_t n);
 void *memcpy(void *dst, const void *src, size_t n);
