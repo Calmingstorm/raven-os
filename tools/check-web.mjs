@@ -180,6 +180,26 @@ try {
     `typing "abo" and spaces, then pressing the tasks button, ran something else:\n${afterButton}`);
   assert.ok(afterButton.split('\n').some(row => row.trimEnd() === 'raven> tasks'), 'the tasks button ran exactly "tasks"');
 
+  // With the cursor moved into the middle of half-typed input, a button still replaces all of it.
+  await page.click('#screen');
+  await page.keyboard.type('about');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await page.getByRole('button', { name: 'services', exact: true }).click();
+  await settle(page);
+  const afterMidLine = (await screenRows(page)).map(row => row.trimEnd());
+  assert.ok(afterMidLine.includes('raven> services') && !afterMidLine.some(row => row.includes('unknown command')),
+    `a button with the cursor mid-line ran something else:\n${afterMidLine.join('\n')}`);
+
+  // A full-length line (the shell takes 159 characters) arrives whole and runs.
+  const longest = 'x'.repeat(159);
+  await page.fill('#type-input', longest + 'overflow');
+  assert.equal(await page.inputValue('#type-input'), longest, 'the line box stops at the shell limit');
+  await page.press('#type-input', 'Enter');
+  await page.waitForFunction(text => window.emulator.screen_adapter.get_text_screen().join('').includes(text),
+    `unknown command: ${longest}`, { timeout: 10000 })
+    .catch(async () => assert.fail(`a 159-character line did not arrive whole:\n${await screenText(page)}`));
+
   // Keys reach the guest only while the screen has focus; Shift+Esc hands them back; Tab stays inside.
   await page.click('#screen');
   await page.keyboard.press('Tab');
