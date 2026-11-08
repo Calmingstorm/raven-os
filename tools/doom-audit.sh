@@ -97,17 +97,22 @@ if grep -E '^[[:space:]]*[[:xdigit:]]+:[[:space:]]+((f|v)[a-z0-9]*|emms|wait|ldm
   exit 1
 fi
 
-# Format strings as the compiler sees them, with RavenOS's macros and adjacent literals joined ("%" "f" is "%f"):
-# no %f/%e/%g/%a and no %n. Escaped percent signs (%%) are literal text.
+# Format strings as the compiler sees them, with RavenOS's macros, escapes decoded ("\045" is "%") and adjacent
+# literals joined ("%" "f" is "%f"): no %f/%e/%g/%a and no %n. Escaped percent signs (%%) are literal text.
 for src in "$ROOT"/third_party/doomgeneric/*.c; do
   gcc -m32 -E -P -ffreestanding -nostdinc -isystem "$(gcc -print-file-name=include)" -I"$ROOT/libc/include" \
     -I"$ROOT/kernel" -I"$ROOT/third_party/doomgeneric" -DRAVENOS "$src" |
     python3 -c '
-import re, sys
+import codecs, re, sys
 literal = r"\"(?:[^\"\\\n]|\\.)*\""
 conversion = re.compile(r"%[-+ #0]*[0-9*]*(?:\.[0-9*]*)?(?:hh|h|ll|l|L|z|j|t)?[fFeEgGaAn]")
+def text(body):  # the characters a literal stands for: \045 and \x25 are percent signs too
+    try:
+        return codecs.decode(body.encode("latin-1"), "unicode_escape")
+    except (UnicodeError, ValueError):
+        return body
 for run in re.finditer(r"(?:%s\s*)+" % literal, sys.stdin.read()):
-    joined = "".join(part[1:-1] for part in re.findall(literal, run.group(0)))
+    joined = "".join(text(part[1:-1]) for part in re.findall(literal, run.group(0)))
     if conversion.search(joined.replace("%%", "")):
         print(sys.argv[1] + ": " + joined)
 ' "$(basename "$src")"
