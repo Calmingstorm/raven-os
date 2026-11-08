@@ -17,6 +17,8 @@ const char quote = '"'; const char *f7 = "after a quote: %g";
 const char *f8 = u8"%" "a";
 const char f9[] = "%7.3G";        /* a const array, in .rodata */
 char f10[] = "%-4.1E";            /* a writable array, in .data */
+const char f11[] = "\x1b[1m%n";   /* an escape character runs into it */
+const struct { char tag; char text[7]; } f12 = { 1, "%-08.2f" };   /* straight after a struct field */
 /* Strings that only look like them. */
 const char *n1 = "\\045f";
 const char *n2 = "100%%f";
@@ -26,9 +28,10 @@ const char n5[] = "100%%";
 EOF
 gcc -m32 -O2 -c "$tmp/fixtures.c" -o "$tmp/fixtures.o"
 python3 "$ROOT/tools/format-scan.py" "$tmp/fixtures.o" | sed 's/^[^:]*: [^:]*: //' | sort > "$tmp/flagged"
-printf '%s\n' '%f' '%n' '%fx' '€%f' '%5.2f' '%%%e' 'after a quote: %g' '%a' '%7.3G' '%-4.1E' | sort > "$tmp/expected"
+printf '%s\n' '%f' '%n' '%fx' '€%f' '%5.2f' '%%%e' 'after a quote: %g' '%a' '%7.3G' '%-4.1E' '[1m%n' '%-08.2f' |
+  sort > "$tmp/expected"
 if ! diff -u "$tmp/expected" "$tmp/flagged" >&2; then
   echo "format-scan-test: the wrong strings were reported" >&2
   exit 1
 fi
-echo "format-scan-test: the 10 float or %n formats are reported from the compiled object, however spelled, and the 5 look-alikes aren't"
+echo "format-scan-test: the 12 float or %n formats are reported from the compiled object, however spelled or stored, and the 5 look-alikes aren't"

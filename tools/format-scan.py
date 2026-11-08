@@ -5,7 +5,8 @@ them. Usage: format-scan.py <object> ...; prints `<object>: <section>: <string>`
 It reads the bytes the compiler emitted rather than lexing C, so escapes, adjacent literals, string prefixes and
 character constants are already resolved exactly as C resolves them. Every NUL-terminated run in a string section
 (.rodata.str*) is checked; in other .rodata and .data sections, which hold strings stored as character arrays among
-other data, runs of printable text are.
+other data, every stretch of printable text is, even when a nonprintable byte (an escape character, the end of a
+struct field) runs straight into it.
 """
 import os
 import re
@@ -40,10 +41,10 @@ def main():
             for section in data_sections(path):
                 strings_only = section.startswith(".rodata.str")
                 for run in section_bytes(path, section, scratch).split(b"\0"):
-                    if not run or (not strings_only and not PRINTABLE.fullmatch(run)):
-                        continue
-                    if CONVERSION.search(run.replace(b"%%", b"")):
-                        print(f"{os.path.basename(path)}: {section}: {run.decode('utf-8', 'replace')}")
+                    texts = [run] if strings_only else [m.group(0) for m in PRINTABLE.finditer(run)]
+                    for text in texts:
+                        if CONVERSION.search(text.replace(b"%%", b"")):
+                            print(f"{os.path.basename(path)}: {section}: {text.decode('utf-8', 'replace')}")
 
 
 if __name__ == "__main__":
