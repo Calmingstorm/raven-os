@@ -16,6 +16,18 @@ for src in kernel/*.c; do
   gcc "${CFLAGS[@]}" -c "$src" -o "$obj"
   objs+=("$obj")
 done
+# Runtime libc is a separate freestanding include domain. Kernel flags above
+# stay unchanged; no host glibc headers or floating-point ABI enter the image.
+LIBCFLAGS=(-m32 -O2 -ffreestanding -fno-pie -fno-stack-protector -fno-builtin
+  -nostdlib -nostdinc -isystem "$(gcc -print-file-name=include)"
+  -Ilibc/include -Ikernel -msoft-float -mno-sse -mno-mmx -Wall -Wextra -Werror)
+for src in libc/*.c; do
+  obj="$BUILD/libc-$(basename "${src%.c}").o"
+  gcc "${LIBCFLAGS[@]}" -c "$src" -o "$obj"
+  objs+=("$obj")
+done
+as "${ASFLAGS[@]}" libc/setjmp.s -o "$BUILD/libc-setjmp.o"
+objs+=("$BUILD/libc-setjmp.o")
 ld "${LDFLAGS[@]}" "${objs[@]}" -o "$BUILD/ravenos.kernel"
 grub-file --is-x86-multiboot "$BUILD/ravenos.kernel"
 cp "$BUILD/ravenos.kernel" "$ISO/boot/ravenos.kernel"

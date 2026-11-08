@@ -1,6 +1,9 @@
 #include "kernel.h"
 
-static uint32_t pit_ticks;
+/* Written by IRQ0 and sampled by main-loop code. Aligned 32-bit reads are
+ * atomic on our uniprocessor; volatile prevents caching across IRQ wakeups.
+ */
+static volatile uint32_t pit_ticks;
 
 void timer_init(uint32_t frequency) {
     pit_ticks = 0;

@@ -1,4 +1,5 @@
 #include "kernel.h"
+#include "raven_ata.h"
 
 typedef struct {
     uint8_t used;
@@ -250,7 +251,12 @@ void storage_init(void) {
     memset(mounted, 0, sizeof(mounted));
     reads = writes = 0;
     journal_seq = 0;
-    ata_backed = ata_rw_ready_flag() ? 1 : 0;
+    /* The whole exposed block device must fit, not only today's file table.
+     * Browser WAD boots may attach a tiny hda solely to enable hdb in v86.
+     * Such disks stay untouched and RavenFS uses its volatile RAM backend. */
+    ata_backed = ata_rw_ready_flag() &&
+                 raven_ata_sector_count(RAVEN_ATA_MASTER) >=
+                 RAVENFS_ATA_BASE_LBA + DISK_SECTORS;
     if (ata_backed) {
         mount_from_backend();
         wyrd_append("storage", "init", "ravenfs", "ok", "ATA-backed block fs online");

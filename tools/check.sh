@@ -3,6 +3,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 ./tools/build.sh
+bash ./tools/runtime-symbol-test.sh
+bash ./tools/libc-test.sh
+bash ./tools/setjmp-test.sh
+bash ./tools/clock-test.sh
+bash ./tools/ata-test.sh
+bash ./tools/wad-test.sh
+bash ./tools/runtime-test.sh
+bash ./tools/doom-command-test.sh
+bash ./tools/round3-qemu-test.sh
 python3 "$ROOT/tests/exception-stubs-test.py"
 ./tools/memory-regression-test.sh
 ./tools/memory-qemu-test.sh
