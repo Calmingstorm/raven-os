@@ -94,7 +94,7 @@ const inputState = page => page.evaluate(() => {
   };
 });
 
-async function waitForScreen(page, text, timeout = 10000) {
+async function waitForScreen(page, text, timeout = 20000) {
   await page.waitForFunction(
     wanted => window.emulator.screen_adapter.get_text_screen().join('\n').includes(wanted), text, { timeout },
   ).catch(async () => {
@@ -104,8 +104,12 @@ async function waitForScreen(page, text, timeout = 10000) {
   });
 }
 
-async function open(width, { block } = {}) {
+async function open(width, { block, cpuSlowdown } = {}) {
   const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
+  if (cpuSlowdown) {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: cpuSlowdown });
+  }
   const problems = [];
   page.log = [];
   page.on('pageerror', error => { problems.push(`page error: ${error.message}`); page.log.push(`pageerror: ${error.message}`); });
@@ -268,8 +272,10 @@ try {
     + 'buttons replace half-typed input; keys only while focused, Shift+Esc leaves, Tab stays inside; '
     + 'gfx pattern twice, text screen back at full width');
 
-  // Phone: the text view is open from the start and follows what the machine prints.
-  const phone = await open(390);
+  // Phone: the text view is open from the start and follows what the machine prints. Run on a CPU slowed
+  // fourfold like a cheap phone: a slow machine once lost the key that should end gfx, because it arrived while
+  // the pattern was still drawing and was discarded as stale.
+  const phone = await open(390, { cpuSlowdown: 4 });
   assert.equal(await phone.page.isVisible('#readout'), true, 'the text view starts open on a phone');
   await phone.page.fill('#type-input', 'about');
   await phone.page.press('#type-input', 'Enter');
@@ -280,12 +286,13 @@ try {
   // In graphics mode the text view says so instead of showing stale text, then comes back.
   await phone.page.fill('#type-input', 'gfx');
   await phone.page.press('#type-input', 'Enter');
-  await phone.page.waitForFunction(() => /graphics mode/.test(document.getElementById('readout').textContent), null, { timeout: 10000 });
+  await phone.page.waitForFunction(() => /graphics mode/.test(document.getElementById('readout').textContent), null, { timeout: 30000 });
   await phone.page.getByRole('button', { name: 'about', exact: true }).click();
-  await phone.page.waitForFunction(() => document.getElementById('readout').textContent.includes('gfx: back in text mode'), null, { timeout: 10000 });
+  await phone.page.waitForFunction(() => document.getElementById('readout').textContent.includes('gfx: back in text mode'), null, { timeout: 30000 })
+    .catch(async () => assert.fail(`the button pressed while gfx was drawing did not end it:\n${await phone.page.textContent('#readout')}`));
   if (shots) await phone.page.screenshot({ path: path.join(shots, 'check-web-phone.png'), fullPage: true });
   assert.deepEqual(phone.problems, []);
-  results.push(`phone: booted in ${phone.bootSeconds.toFixed(1)} s; the text view is open, wraps, follows the machine, and covers graphics mode`);
+  results.push(`phone (CPU 4x slower): booted in ${phone.bootSeconds.toFixed(1)} s; the text view is open, wraps, follows the machine, and covers graphics mode`);
 
   // A failed download says what failed and offers a retry instead of hanging on "Starting".
   const broken = await open(1280, { block: 'ravenos.kernel' });

@@ -211,13 +211,20 @@ static void draw_pattern(volatile uint32_t *fb, uint32_t stride, const GfxProbe 
     draw_text(fb, stride, 8, 360, 1, line, 0xC0C0C0);
 }
 
+/* Input queued before graphics appears doesn't count. This runs before the mode switch, not after the pattern
+ * is drawn: on a slow machine a key pressed while the pattern draws is a real answer and must not be dropped. */
+static void discard_queued_input(void) {
+    KeyEvent key;
+    char c;
+    while (keyboard_pop(&key)) {}
+    while (serial_read_char(&c)) {}
+}
+
+/* Only a new press of a non-modifier key (or a serial character) returns. Releases don't count, including the
+ * release of the Enter that launched gfx. */
 static void wait_for_fresh_key(void) {
     KeyEvent key;
     char c;
-    /* Whatever was queued before graphics appeared doesn't count, including the release of the Enter that
-     * launched gfx. Only a new press of a non-modifier key (or a serial character) returns. */
-    while (keyboard_pop(&key)) {}
-    while (serial_read_char(&c)) {}
     for (;;) {
         while (keyboard_pop(&key)) {
             if (key.pressed && key.code != KEY_NONE && key.code != KEY_SHIFT && key.code != KEY_CTRL &&
@@ -249,6 +256,7 @@ void gfx_command(void) {
     if (!vga_window) vga_window = (volatile uint8_t *)paging_map_mmio(VGA_WINDOW_PHYS, VGA_WINDOW_BYTES);
     if (!vga_window) { refuse("the VGA window could not be mapped"); return; }
 
+    discard_queued_input();
     registers_save(&saved_registers);
     font_access(1);
     palette_access(1);
