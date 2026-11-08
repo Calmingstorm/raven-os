@@ -83,6 +83,7 @@ function checkBooted() {
 function fitScreen() {
   const width = canvas.width || 720;
   const height = canvas.height || 400;
+  if (!graphical && canvas.width) textCanvasSize = [canvas.width, canvas.height];
   const full = document.fullscreenElement === screen;
   const ratio = window.devicePixelRatio || 1;
   const availableWidth = full ? window.innerWidth : screen.parentElement.clientWidth - 4;
@@ -94,7 +95,28 @@ function fitScreen() {
   canvas.style.height = `${Math.floor(height * scale)}px`;
   canvas.style.imageRendering = wholeDevicePixels >= 1 ? 'pixelated' : 'auto';
 }
-emulator.add_listener('screen-set-size', () => requestAnimationFrame(fitScreen));
+// v86 reports [columns, rows, 0] for text mode and [width, height, bits per pixel] for graphics.
+let graphical = false;
+let textCanvasSize = null;
+emulator.add_listener('screen-set-size', ([, , bpp]) => {
+  const leavingGraphics = graphical && !bpp;
+  graphical = bpp > 0;
+  // v86 0.5.473 puts the visible canvas back to text size only when its hidden text canvas changes
+  // size, which it doesn't when graphics mode ends at the same 80x25. The text then draws into the
+  // 640-pixel graphics canvas and loses its right edge. Restore the size and redraw, and forget v86's
+  // cached graphics size so the next graphics mode resizes the canvas again.
+  if (leavingGraphics && textCanvasSize) {
+    const [width, height] = textCanvasSize;
+    const vga = emulator.v86.cpu.devices.vga;
+    vga.screen_width = vga.screen_height = 0;
+    emulator.screen_adapter.set_size_graphical(width, height, width, height);
+    vga.complete_redraw();
+  }
+  requestAnimationFrame(() => {
+    fitScreen();
+    updateReadout();
+  });
+});
 new ResizeObserver(fitScreen).observe(screen.parentElement);
 document.addEventListener('fullscreenchange', fitScreen);
 window.addEventListener('resize', fitScreen);
@@ -119,6 +141,10 @@ function screenText() {
 
 function updateReadout() {
   if (readout.hidden) return;
+  if (graphical) {
+    readout.textContent = 'The screen is in graphics mode. The text view comes back when RavenOS returns to text.';
+    return;
+  }
   const atBottom = readout.scrollTop + readout.clientHeight >= readout.scrollHeight - 4;
   readout.textContent = screenText();
   if (atBottom) readout.scrollTop = readout.scrollHeight;

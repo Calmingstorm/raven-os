@@ -15,6 +15,7 @@ bash ./tools/round2-paging-qemu-test.sh
 ./tools/serial-editor-test.sh
 ./tools/vga-test.sh
 ./tools/console-qemu-test.sh
+python3 ./tools/gfx-qemu-test.py
 ./tools/smoke-qemu.sh
 ./tools/smoke-qemu-disk.sh
 ./tools/persistence-qemu-test.sh

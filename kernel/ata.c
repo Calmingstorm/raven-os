@@ -26,16 +26,6 @@ static uint32_t ata_reads;
 static uint32_t ata_writes;
 static uint32_t ata_errors;
 
-static uint16_t inw(uint16_t port) {
-    uint16_t ret;
-    __asm__ volatile ("inw %1, %0" : "=a"(ret) : "Nd"(port));
-    return ret;
-}
-
-static void outw(uint16_t port, uint16_t value) {
-    __asm__ volatile ("outw %0, %1" : : "a"(value), "Nd"(port));
-}
-
 static void tiny_wait(void) {
     inb(ATA_STATUS); inb(ATA_STATUS); inb(ATA_STATUS); inb(ATA_STATUS);
 }

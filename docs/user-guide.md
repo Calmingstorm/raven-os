@@ -99,4 +99,19 @@ without a disk and examines actual VGA text cells and hardware cursor state.
 See `tests/console-tests.md` and `tools/memory-regression.md` for focused runners,
 coverage, limits and the optional isolated v86 guest test.
 
+## Graphics
+
+`gfx` switches to 640x400 at 32 bits per pixel through the Bochs VBE display interface (QEMU's std-vga, Bochs,
+VirtualBox and v86) and draws a test pattern: eight colour bars, a grey ramp, and the display's PCI and interface
+IDs. A new press of any non-modifier key returns to the console. The text font, palette, VGA registers, screen
+contents, cursor and scrollback come back as they were, every time.
+
+`gfx info` shows the display device, its framebuffer (BAR0 base and size), the largest mode it supports, whether
+640x400x32 is available, and how many times graphics was entered or refused. Without a Bochs VBE display (a
+Cirrus card, for example) `gfx` says why and stays in text mode.
+
+`tools/gfx-qemu-test.py` runs three graphics cycles on std-vga, checking the pattern's pixels and that the text
+screen afterwards matches the one before pixel for pixel, then the refusal on a Cirrus card. `tools/check-web.mjs`
+checks the same pattern in the browser.
+
 RavenOS is not POSIX. The shell is an operator console over the wyrd log and kernel objects, not a Unix cosplay terminal. Good. The world has enough beige mistakes.
