@@ -38,6 +38,8 @@ jobs:
         run: |
           mkdir -p /tmp/check-web
           node tools/check-web.mjs --screenshots /tmp/check-web
+      - name: Integrity checker regressions (damaged gzip copies)
+        run: node tools/verify-web-test.mjs
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
