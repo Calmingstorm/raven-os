@@ -35,7 +35,22 @@ if (!url) {
       res.writeHead(404).end();
       return;
     }
-    res.writeHead(200, { 'content-type': types[path.extname(file)] || 'application/octet-stream' });
+    const type = types[path.extname(file)] || 'application/octet-stream';
+    // The Doom disk is read in byte ranges, answered as nginx does: v86 rejects a whole file sent for a range.
+    const range = /^bytes=(\d+)-(\d+)$/.exec(req.headers.range || '');
+    if (range) {
+      const size = fs.statSync(file).size;
+      const start = Number(range[1]);
+      const end = Math.min(Number(range[2]), size - 1);
+      const part = Buffer.alloc(end - start + 1);
+      const fd = fs.openSync(file, 'r');
+      fs.readSync(fd, part, 0, part.length, start);
+      fs.closeSync(fd);
+      res.writeHead(206, { 'content-type': type, 'content-range': `bytes ${start}-${end}/${size}` });
+      res.end(part);
+      return;
+    }
+    res.writeHead(200, { 'content-type': type });
     res.end(fs.readFileSync(file));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));

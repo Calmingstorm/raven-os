@@ -13,6 +13,20 @@ const textToggle = document.getElementById('text-toggle');
 const PROMPT = 'raven>';
 // Page load to the shell prompt. The prompt normally appears in under a second once the files are in.
 const BOOT_TIMEOUT_MS = 30000;
+// RavenFS's disk: blank, and kept only in this tab's memory.
+const SCRATCH_DISK_BYTES = 1024 * 1024;
+
+// The Doom data disk, named by its hash in build.json. Nothing of it downloads until Doom reads it, and then only
+// the fixed-size chunks it reads; the image is a whole number of chunks, which v86's chunked reads need.
+async function doomDisk() {
+  try {
+    const response = await fetch('build.json', { cache: 'no-cache' });
+    const doom = response.ok ? (await response.json()).doom : null;
+    return doom ? { url: doom.image, size: doom.image_bytes, async: true, fixed_chunk_size: doom.chunk_bytes } : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 const emulator = new V86({
   wasm_path: 'v86.wasm',
@@ -21,8 +35,11 @@ const emulator = new V86({
   screen: { container: screen, use_graphical_text: true },
   bios: { url: 'seabios.bin' },
   vga_bios: { url: 'vgabios.bin' },
-  // The kernel is a Multiboot image, so v86 loads it directly: no bootloader or disk image.
+  // The kernel is a Multiboot image, so v86 loads it directly: no bootloader or boot disk.
   multiboot: { url: 'ravenos.kernel' },
+  // v86 attaches the second disk (the primary slave, where RavenOS looks for Doom) only beside a first one.
+  hda: { buffer: new ArrayBuffer(SCRATCH_DISK_BYTES) },
+  hdb: await doomDisk(),
   // RavenOS has no mouse driver; this also stops a click on the screen from grabbing the pointer.
   disable_mouse: true,
   autostart: true,
@@ -55,6 +72,32 @@ function fail(message) {
   setStatus(message, 'stopped');
 }
 retry.addEventListener('click', () => location.reload());
+
+// A CPU fault halts RavenOS with two lines on its serial port. The screen just stops (in graphics mode, on the
+// last frame), so say what happened.
+let serialLine = '';
+let previousSerialLine = '';
+emulator.add_listener('serial0-output-byte', byte => {
+  if (byte !== 10 && byte !== 13) {
+    if (serialLine.length < 300) serialLine += String.fromCharCode(byte);
+    return;
+  }
+  if (!serialLine) return;
+  if (serialLine === 'interrupts disabled; halted' && previousSerialLine.startsWith('FATAL exception=')) {
+    halted(previousSerialLine);
+  }
+  previousSerialLine = serialLine;
+  serialLine = '';
+});
+
+function halted(fault) {
+  overlay.hidden = false;
+  overlay.dataset.state = 'error';
+  overlayText.textContent = `RavenOS stopped on a CPU fault (${fault.slice(6)}). Restart to start it again.`;
+  retry.textContent = 'Restart';
+  retry.hidden = false;
+  setStatus('Stopped on a CPU fault.', 'stopped');
+}
 
 emulator.add_listener('download-progress', event => {
   if (!failed && event.lengthComputable && event.total) {
