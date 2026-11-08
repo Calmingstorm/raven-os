@@ -82,6 +82,9 @@ if grep -q 'libgcc' "$BUILD/ravenos.map"; then
   exit 1
 fi
 grep -q '_divdi3\.o' "$BUILD/ravenos.map" || { echo "doom-audit: __divdi3 isn't libgcc's own object" >&2; exit 1; }
+readelf -h "$BUILD/_divdi3.o" | grep -q 'Class:.*ELF32' || { echo "doom-audit: _divdi3.o is not 32-bit" >&2; exit 1; }
+[ "$(nm --defined-only "$BUILD/_divdi3.o" | awk '{print $2 " " $3}')" = "T __divdi3" ] && [ -z "$(nm -u "$BUILD/_divdi3.o")" ] ||
+  { echo "doom-audit: _divdi3.o defines or needs more than __divdi3" >&2; exit 1; }
 
 objdump -d --no-show-raw-insn "${engine[@]}" "$BUILD/_divdi3.o" > "$TMP/disassembly"
 if grep -E '^[[:space:]]*[[:xdigit:]]+:[[:space:]]+(f(ld|st|add|sub|mul|div|com|ucom|ild|ist|init|ninit|wait|chs|abs|sqrt|xch|xsave|xrstor|nstcw|ldcw|nstsw)|emms|[a-z0-9]+[[:space:]].*%(xmm|ymm|mm)[0-9])' "$TMP/disassembly" | head -20 >&2; then
@@ -102,3 +105,4 @@ if [ -s "$TMP/formats" ]; then
   exit 1
 fi
 echo "doom-audit: ${#engine[@]} engine objects import exactly the agreed surface; only libgcc's __divdi3 object is linked; no x87/SIMD; no float or %n formats"
+sed 's/^/  /' "$BUILD/libgcc-divdi3.txt"

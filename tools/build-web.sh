@@ -26,6 +26,8 @@ doom_image="freedoom1-${image_sha256:0:16}.img"
 cp "$ROOT/build/doom/freedoom1.img" "$DIST/$doom_image"
 for f in COPYING CREDITS CREDITS-MUSIC; do cp "$ROOT/build/doom/licenses/freedoom/$f.txt" "$DIST/licenses/freedoom-$f.txt"; done
 cp "$ROOT/third_party/doomgeneric/COPYING" "$DIST/licenses/GPL-2.0.txt"
+# Which toolchain object the kernel took from libgcc (__divdi3).
+cp "$ROOT/build/libgcc-divdi3.txt" "$DIST/source/libgcc-divdi3.txt"
 
 # The BIOS source directory needs an index page: nginx doesn't list directories.
 {

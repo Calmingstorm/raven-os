@@ -17,7 +17,7 @@ KEEP=5
 REQUIRED=(index.html app.js style.css favicon.svg libv86.mjs v86.wasm seabios.bin vgabios.bin ravenos.kernel
           licenses/v86-LICENSE.txt licenses/LGPL-3.0.txt licenses/GPL-3.0.txt licenses/GPL-2.0.txt
           licenses/freedoom-COPYING.txt licenses/freedoom-CREDITS.txt licenses/freedoom-CREDITS-MUSIC.txt
-          source/ravenos-source.tar.gz
+          licenses/GCC-RUNTIME-LIBRARY-EXCEPTION-3.1.txt source/ravenos-source.tar.gz source/libgcc-divdi3.txt
           source/bios/index.html source/bios/README.md source/bios/seabios-1.16.2.tar.gz
           source/bios/seabios.config source/bios/fetch-and-build-seabios.sh source/bios/COPYING.LESSER)
 

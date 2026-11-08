@@ -15,6 +15,7 @@ bash ./tools/round3-qemu-test.sh
 ./tools/build-wad.sh
 ./tools/doom-input-test.sh
 bash ./tools/doom-audit.sh
+./tools/divdi3-test.sh
 ./tools/doom-host-test.sh
 ./tools/doomgeneric-diff.sh >/dev/null
 python3 ./tools/doom-qemu-test.py

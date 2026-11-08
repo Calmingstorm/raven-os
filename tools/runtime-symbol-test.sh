@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Audits runtime-only build. This does not audit the future engine object list.
+# Audits the linked image. tools/doom-audit.sh audits the engine objects themselves.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KERNEL="${1:-$ROOT/build/ravenos.kernel}"
@@ -15,7 +15,9 @@ for symbol in setjmp longjmp malloc calloc realloc free snprintf vsnprintf sscan
     nm --defined-only "$KERNEL" | awk '{print $3}' > "$TMP/defined"
     grep -qx "$symbol" "$TMP/defined"
 done
-if nm "$KERNEL" | grep -E '\b(__.*(df|sf|di)3|atof|strtod|system|fork|execve)$'; then
+# __divdi3 is the one compiler helper allowed: Doom's FixedDiv needs it, and doom-audit.sh checks it is libgcc's
+# own object and the only thing taken from libgcc.
+if nm "$KERNEL" | grep -vE '[[:space:]]__divdi3$' | grep -E '\b(__.*(df|sf|di)3|atof|strtod|system|fork|execve)$'; then
     echo 'Unexpected float/compiler-runtime or host-process dependency' >&2
     exit 1
 fi
@@ -25,4 +27,4 @@ if grep -E '^[[:space:]]*[[:xdigit:]]+:[[:space:]]+(f(ld|st|add|sub|mul|div|com|
     echo 'Unexpected x87/SIMD use in runtime kernel' >&2
     exit 1
 fi
-echo 'runtime symbols: resolved freestanding integer-only image, no host/float helpers; engine audit still required'
+echo 'runtime symbols: resolved freestanding integer-only image, no host/float helpers beyond __divdi3'

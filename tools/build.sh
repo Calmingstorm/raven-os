@@ -39,8 +39,20 @@ for src in third_party/doomgeneric/*.c; do
   objs+=("$obj")
 done
 # Doom's FixedDiv divides 64 bits by 32. libgcc's __divdi3 object is the one compiler helper in the image; nothing
-# else is taken from libgcc.
-(cd "$BUILD" && ar x "$(gcc -m32 -print-libgcc-file-name)" _divdi3.o)
+# else is taken from libgcc. Where it came from is recorded beside the build.
+libgcc="$(gcc -m32 -print-libgcc-file-name)"
+rm -f "$BUILD/_divdi3.o"
+(cd "$BUILD" && ar x "$libgcc" _divdi3.o) 2>/dev/null || true
+if ! readelf -h "$BUILD/_divdi3.o" 2>/dev/null | grep -q 'Machine:.*Intel 80386'; then
+  echo "build: no 32-bit __divdi3 in $libgcc; install gcc-multilib" >&2
+  exit 1
+fi
+{
+  echo "gcc: $(gcc --version | head -n1)"
+  echo "archive: $libgcc"
+  echo "package: $(dpkg-query -S "$libgcc" 2>/dev/null | cut -d: -f1 | xargs -r dpkg-query -W -f='${Package} ${Version}' 2>/dev/null || echo unknown)"
+  echo "member: _divdi3.o, sha256 $(sha256sum "$BUILD/_divdi3.o" | cut -d' ' -f1)"
+} > "$BUILD/libgcc-divdi3.txt"
 objs+=("$BUILD/_divdi3.o")
 ld "${LDFLAGS[@]}" -Map="$BUILD/ravenos.map" "${objs[@]}" -o "$BUILD/ravenos.kernel"
 grub-file --is-x86-multiboot "$BUILD/ravenos.kernel"
