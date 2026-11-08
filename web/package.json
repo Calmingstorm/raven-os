@@ -1,0 +1,8 @@
+{
+  "name": "ravenos-web",
+  "private": true,
+  "description": "RavenOS in the browser: the kernel booted by the v86 x86 emulator",
+  "devDependencies": {
+    "v86": "0.5.473"
+  }
+}
