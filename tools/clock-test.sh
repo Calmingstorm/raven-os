@@ -35,8 +35,10 @@ done
 ld -m elf_i386 -T boot/linker.ld -nostdlib "$BUILD/boot.o" "$BUILD/irq.o" \
     "$BUILD/clock-guest.o" "$BUILD/ports.o" "$BUILD/clock.o" -o "$BUILD/guest"
 set +e
-timeout 15s qemu-system-i386 -accel tcg -m 32 -display none -monitor none \
-    -serial stdio -no-reboot -no-shutdown -kernel "$BUILD/guest" \
+# Newer QEMU keeps even isa-debug-exit stopped under -no-shutdown. Require
+# the actual success exit, not a timeout after an encouraging serial marker.
+timeout --kill-after=2 15s qemu-system-i386 -accel tcg -m 32 -display none -monitor none \
+    -serial stdio -no-reboot -kernel "$BUILD/guest" \
     -device isa-debug-exit,iobase=0xf4,iosize=0x04 > "$BUILD/guest.log" 2>&1
 RESULT=$?
 set -e
