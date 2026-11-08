@@ -150,7 +150,7 @@ h2 { margin: 0 0 6px; font-size: 1.15rem; }
 .doom .play { font-family: var(--mono); color: var(--amber); border-color: #5a4a1e; }
 .controls {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 6px 20px;
   margin: 16px 0;
 }
